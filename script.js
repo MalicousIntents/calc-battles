@@ -226,24 +226,38 @@ function initMatchmakingUI(){
       
       const channel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('calc_battles_lobbies') : null;
       if(channel){
-        channel.postMessage({ type: 'HOST_CREATED', code: state.lobbyCode, hostName: state.user.name });
+        // Announce lobby creation & heartbeat so joiners can find this host
+        const hbInterval = setInterval(() => {
+          channel.postMessage({ type: 'LOBBY_PING', code: state.lobbyCode, hostName: state.user.name });
+        }, 1000);
+
         channel.onmessage = (event) => {
-          if(event.data && event.data.type === 'JOIN_LOBBY' && event.data.code === state.lobbyCode){
-            clearTimeout(state.mmTimeout);
-            state.opponentName = event.data.guestName;
-            if($('mm-create')) $('mm-create').style.display = 'none';
-            if($('mm-found')) $('mm-found').style.display = '';
-            if($('mm-found-name')) $('mm-found-name').textContent = `${state.opponentName} joined your lobby!`;
-            setTimeout(() => { 
-              channel.close();
-              closeModal('modal-matchmaking'); 
-              launchRealtimeBattle(channel); 
-            }, 1500);
+          if(event.data && event.data.code === state.lobbyCode){
+            if(event.data.type === 'CHECK_LOBBY'){
+              // Answer ping from a user trying to join
+              channel.postMessage({ type: 'LOBBY_EXISTS', code: state.lobbyCode, hostName: state.user.name });
+            } else if(event.data.type === 'JOIN_LOBBY'){
+              clearInterval(hbInterval);
+              clearTimeout(state.mmTimeout);
+              state.opponentName = event.data.guestName;
+              if($('mm-create')) $('mm-create').style.display = 'none';
+              if($('mm-found')) $('mm-found').style.display = '';
+              if($('mm-found-name')) $('mm-found-name').textContent = `${state.opponentName} joined your lobby!`;
+              setTimeout(() => { 
+                channel.close();
+                closeModal('modal-matchmaking'); 
+                launchRealtimeBattle(channel); 
+              }, 1500);
+            }
           }
         };
+
+        state.hostChannel = channel;
+        state.hostHbInterval = hbInterval;
       }
 
       state.mmTimeout = setTimeout(() => {
+        if(state.hostHbInterval) clearInterval(state.hostHbInterval);
         if(channel) channel.close();
         if($('mm-create')) $('mm-create').style.display = 'none';
         if($('mm-choice')) $('mm-choice').style.display = '';
@@ -273,26 +287,52 @@ function initMatchmakingUI(){
 
       if($('mm-join')) $('mm-join').style.display = 'none';
       if($('mm-found')) $('mm-found').style.display = '';
-      if($('mm-found-name')) $('mm-found-name').textContent = `Connecting to lobby ${code}...`;
+      if($('mm-found-name')) $('mm-found-name').textContent = `Searching for lobby ${code}...`;
 
       const channel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('calc_battles_lobbies') : null;
-      if(channel){
-        channel.postMessage({ type: 'JOIN_LOBBY', code: code, guestName: state.user.name });
-        state.lobbyCode = code;
-        setTimeout(() => {
-          if($('mm-found-name')) $('mm-found-name').textContent = `Connected! Launching match...`;
-          setTimeout(() => {
-            closeModal('modal-matchmaking');
-            launchRealtimeBattle(channel);
-          }, 1200);
-        }, 1000);
-      } else {
-        if($('mm-found-name')) $('mm-found-name').textContent = 'Error: BroadcastChannel not supported in this browser.';
+      if(!channel){
+        if($('mm-found-name')) $('mm-found-name').textContent = 'Error: BroadcastChannel not supported.';
+        return;
       }
+
+      let foundHost = false;
+      channel.onmessage = (event) => {
+        if(event.data && event.data.code === code && (event.data.type === 'LOBBY_PING' || event.data.type === 'LOBBY_EXISTS')){
+          if(!foundHost){
+            foundHost = true;
+            clearTimeout(searchTimeout);
+            state.opponentName = event.data.hostName || 'Host';
+            if($('mm-found-name')) $('mm-found-name').textContent = `Connected to ${state.opponentName}! Launching match...`;
+            channel.postMessage({ type: 'JOIN_LOBBY', code: code, guestName: state.user.name });
+            state.lobbyCode = code;
+            setTimeout(() => {
+              closeModal('modal-matchmaking');
+              launchRealtimeBattle(channel);
+            }, 1200);
+          }
+        }
+      };
+
+      // Ask if lobby exists
+      channel.postMessage({ type: 'CHECK_LOBBY', code: code });
+
+      // If no response after 2.5 seconds, the code is invalid
+      const searchTimeout = setTimeout(() => {
+        if(!foundHost){
+          channel.close();
+          resetMatchmakingPanels();
+          alert(`Invalid Lobby Code: "${code}" does not exist or host is not active.`);
+        }
+      }, 2500);
     });
   }
 
-  if($('btn-cancel-create')) $('btn-cancel-create').addEventListener('click', () => { clearTimeout(state.mmTimeout); resetMatchmakingPanels(); });
+  if($('btn-cancel-create')) $('btn-cancel-create').addEventListener('click', () => { 
+    if(state.hostHbInterval) clearInterval(state.hostHbInterval);
+    if(state.hostChannel) state.hostChannel.close();
+    clearTimeout(state.mmTimeout); 
+    resetMatchmakingPanels(); 
+  });
   if($('btn-cancel-join')) $('btn-cancel-join').addEventListener('click', resetMatchmakingPanels);
 }
 
@@ -403,7 +443,7 @@ function launchRealtimeBattle(channel){
   if(activeMatchChannel){
     activeMatchChannel.onmessage = (event) => {
       const data = event.data;
-      if(!data || !state.match) return;
+      if(!data || !state.match || data.code !== state.lobbyCode) return;
       if(data.type === 'PLAYER_SCORE'){
         state.match.oppScore = data.score;
         if($('battle-opp-score')) $('battle-opp-score').textContent = state.match.oppScore;
@@ -507,7 +547,7 @@ function nextRoundRealtime(){
     el.classList.add('swap');
   }
   if(activeMatchChannel){
-    activeMatchChannel.postMessage({ type: 'NEXT_ROUND', target: m.target });
+    activeMatchChannel.postMessage({ type: 'NEXT_ROUND', code: state.lobbyCode, target: m.target });
   }
 }
 
@@ -573,7 +613,7 @@ function playerScores(){
   }
 
   if(activeMatchChannel){
-    activeMatchChannel.postMessage({ type: 'PLAYER_SCORE', score: m.myScore, points });
+    activeMatchChannel.postMessage({ type: 'PLAYER_SCORE', code: state.lobbyCode, score: m.myScore, points });
   }
 
   setTimeout(() => {
@@ -813,7 +853,7 @@ function init(){
   });
 
   if($('btn-play-again')) $('btn-play-again').addEventListener('click', () => { openMatchmaking(); showScreen('screen-lobby'); });
-  if($('btn-to-lobby')) $('btn-to-lobby').addEventListener('click', () => showScreen('screen-lobby'));
+  if($('btn-to-lobby')) $('btn-to-lobby').addEventListener('click', () => { showScreen('screen-lobby'); });
 
   initLobby();
   initMatchmakingUI();
