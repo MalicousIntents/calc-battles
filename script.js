@@ -26,10 +26,17 @@ function qsa(sel, root=document){ return Array.from(root.querySelectorAll(sel));
 
 function showScreen(id){
   qsa('.screen').forEach(s => s.classList.remove('active'));
-  $(id).classList.add('active');
+  const target = $(id);
+  if (target) target.classList.add('active');
 }
-function openModal(id){ $(id).classList.add('active'); }
-function closeModal(id){ $(id).classList.remove('active'); }
+function openModal(id){
+  const modal = $(id);
+  if (modal) modal.classList.add('active');
+}
+function closeModal(id){
+  const modal = $(id);
+  if (modal) modal.classList.remove('active');
+}
 
 function randomFriendCode(){
   const n = () => Math.floor(1000 + Math.random()*9000);
@@ -40,6 +47,14 @@ function randomLobbyCode(){
   let s = '';
   for(let i=0;i<7;i++) s += chars[Math.floor(Math.random()*chars.length)];
   return s;
+}
+function randomGuestName(){
+  const adjectives = ['Cyber', 'Nano', 'Byte', 'Mega', 'Hyper', 'Quantum', 'Void', 'Vector'];
+  const nouns = ['Player', 'Hacker', 'Coder', 'Runner', 'Matrix', 'Digit', 'Scalar', 'Kernel'];
+  const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
+  const noun = nouns[Math.floor(Math.random() * nouns.length)];
+  const num = Math.floor(10 + Math.random() * 90);
+  return `${adj}${noun}${num}`;
 }
 function rankForWins(wins){
   let r = RANKS[0];
@@ -85,19 +100,8 @@ function initBackground(){
   frame();
 }
 
-function beginAuth(provider){
-  state.pendingAuthProvider = provider;
-  openModal('modal-name');
-  const input = $('input-username');
-  if(input) {
-    input.value = '';
-    setTimeout(() => input.focus(), 50);
-  }
-}
-
-function completeAuth(){
-  const input = $('input-username');
-  const name = (input ? input.value.trim() : '') || 'Player';
+function loginAsGuest(){
+  const name = randomGuestName();
   state.user = {
     name,
     avatar: name.charAt(0).toUpperCase(),
@@ -658,31 +662,26 @@ function shakeExpr(){
 function init(){
   initBackground();
 
-  const handleAuthTrigger = () => {
-    state.pendingAuthProvider = 'guest';
-    openModal('modal-name');
-    const input = $('input-username');
-    if(input) {
-      input.value = '';
-      setTimeout(() => input.focus(), 50);
-    }
+  const handleGuestEntry = (e) => {
+    if(e) e.preventDefault();
+    loginAsGuest();
   };
 
-  if($('btn-google')) $('btn-google').addEventListener('click', handleAuthTrigger);
-  if($('btn-discord-login')) $('btn-discord-login').addEventListener('click', handleAuthTrigger);
+  if($('btn-google')) $('btn-google').addEventListener('click', handleGuestEntry);
+  if($('btn-discord-login')) $('btn-discord-login').addEventListener('click', handleGuestEntry);
+  if($('btn-confirm-name')) $('btn-confirm-name').addEventListener('click', handleGuestEntry);
   
-  qsa('.auth-btn, .guest-btn, #btn-google, #btn-discord-login').forEach(btn => {
-    if(!btn.dataset.bound) {
-      btn.dataset.bound = 'true';
-      btn.addEventListener('click', handleAuthTrigger);
-    }
-  });
-
-  if($('btn-confirm-name')) $('btn-confirm-name').addEventListener('click', completeAuth);
   const usernameInput = $('input-username');
   if(usernameInput) {
-    usernameInput.addEventListener('keydown', e => { if (e.key === 'Enter') completeAuth(); });
+    usernameInput.addEventListener('keydown', e => { if (e.key === 'Enter') handleGuestEntry(e); });
   }
+
+  qsa('.auth-btn, .guest-btn, #btn-google, #btn-discord-login, #btn-confirm-name').forEach(btn => {
+    if(!btn.dataset.bound) {
+      btn.dataset.bound = 'true';
+      btn.addEventListener('click', handleGuestEntry);
+    }
+  });
 
   if($('btn-play')) $('btn-play').addEventListener('click', () => showScreen('screen-lobby'));
   if($('btn-back-menu')) $('btn-back-menu').addEventListener('click', () => showScreen('screen-menu'));
