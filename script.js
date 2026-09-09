@@ -263,14 +263,96 @@ function randomTarget(){
   return val;
 }
 
-function safeEval(expr){
-  if (!expr || !/^[0-9+\-*/(). ]+$/.test(expr)) return null;
-  if (/[+\-*/.]{3,}/.test(expr)) return null;
+/* ---- expression parser (no eval/Function — also lets us inspect the
+   equation's actual shape for anti-cheat, not just its result) ---- */
+function parseCalcExpr(raw){
+  const s = (raw || '').replace(/\s+/g, '');
+  if (!s) return null;
+  let pos = 0;
+  const peek = () => s[pos];
+
+  function parseNumber(){
+    const start = pos;
+    if (s[pos] === '-') pos++;
+    const digitsStart = pos;
+    while (pos < s.length && /[0-9.]/.test(s[pos])) pos++;
+    if (pos === digitsStart) throw 0;
+    return { type:'num', value: parseFloat(s.slice(start, pos)) };
+  }
+  function parseFactor(){
+    if (peek() === '-'){
+      pos++;
+      return { type:'bin', op:'*', unary:true, left:{type:'num',value:-1}, right:parseFactor() };
+    }
+    if (peek() === '('){
+      pos++;
+      const inner = parseAdd();
+      if (peek() !== ')') throw 0;
+      pos++;
+      return inner;
+    }
+    return parseNumber();
+  }
+  function parseMul(){
+    let node = parseFactor();
+    while (peek() === '*' || peek() === '/'){
+      const op = peek(); pos++;
+      node = { type:'bin', op, left:node, right:parseFactor() };
+    }
+    return node;
+  }
+  function parseAdd(){
+    let node = parseMul();
+    while (peek() === '+' || peek() === '-'){
+      const op = peek(); pos++;
+      node = { type:'bin', op, left:node, right:parseMul() };
+    }
+    return node;
+  }
   try{
-    // eslint-disable-next-line no-new-func
-    const val = Function(`"use strict"; return (${expr});`)();
-    return (typeof val === 'number' && isFinite(val)) ? val : null;
+    const tree = parseAdd();
+    if (pos !== s.length) return null;
+    return tree;
   }catch(e){ return null; }
+}
+
+function evalNode(node){
+  if (node.type === 'num') return node.value;
+  const l = evalNode(node.left), r = evalNode(node.right);
+  if (node.op === '+') return l + r;
+  if (node.op === '-') return l - r;
+  if (node.op === '*') return l * r;
+  if (node.op === '/') return l / r;
+}
+
+// True once there's at least one real (non-unary) operation in the tree —
+// stops someone from just entering the target number on its own.
+function hasRealOperation(node){
+  if (node.type !== 'bin') return false;
+  if (!node.unary) return true;
+  return hasRealOperation(node.left) || hasRealOperation(node.right);
+}
+const isZero = n => n.type === 'num' && Math.abs(n.value) < 1e-9;
+const isOne  = n => n.type === 'num' && Math.abs(n.value - 1) < 1e-9;
+
+// Walks the tree looking for a no-op step: +0, -0, *1, or /1 — anywhere,
+// including inside parentheses, so wrapping it doesn't get around it.
+function findFreebie(node){
+  if (node.type !== 'bin') return false;
+  if (!node.unary){
+    if (node.op === '+' && (isZero(node.left) || isZero(node.right))) return true;
+    if (node.op === '-' && isZero(node.right)) return true;
+    if (node.op === '*' && (isOne(node.left) || isOne(node.right))) return true;
+    if (node.op === '/' && isOne(node.right)) return true;
+  }
+  return findFreebie(node.left) || findFreebie(node.right);
+}
+
+function evalExpr(expr){
+  const tree = parseCalcExpr(expr);
+  if (!tree) return null;
+  const val = evalNode(tree);
+  return isFinite(val) ? val : null;
 }
 
 function launchBattle(){
@@ -470,7 +552,7 @@ function resetCalc(){
 function renderCalc(){
   const m = state.match;
   $('calc-expr').textContent = m.expr || '\u00A0';
-  const val = safeEval(m.expr);
+  const val = evalExpr(m.expr);
   $('calc-preview').textContent = val === null ? '= —' : '= ' + fmtNum(val);
 }
 
@@ -505,8 +587,24 @@ function initCalc(){
 function submitAnswer(){
   const m = state.match;
   if (!m || m.roundSolved) return;
-  const val = safeEval(m.expr);
-  if (val === null){ shakeExpr(); return; }
+
+  const tree = parseCalcExpr(m.expr);
+  if (!tree){ shakeExpr(); return; }
+
+  if (!hasRealOperation(tree)){
+    shakeExpr();
+    pushFeed('That\u2019s just the number — do some math', 'wrong');
+    return;
+  }
+  if (findFreebie(tree)){
+    shakeExpr();
+    pushFeed('+0 and \u00D71 don\u2019t count', 'wrong');
+    return;
+  }
+
+  const val = evalNode(tree);
+  if (!isFinite(val)){ shakeExpr(); return; }
+
   if (Math.abs(val - m.target) < 0.005){
     playerScores();
   } else {
