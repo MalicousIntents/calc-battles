@@ -21,11 +21,11 @@
         <svg viewBox="0 0 48 48" class="brand-icon"><path d="M10 8h28a2 2 0 0 1 2 2v28a2 2 0 0 1-2 2H10a2 2 0 0 1-2-2V10a2 2 0 0 1 2-2z" fill="none" stroke="currentColor" stroke-width="2.5"/><line x1="8" y1="18" x2="40" y2="18" stroke="currentColor" stroke-width="2.5"/><circle cx="15" cy="26" r="1.8" fill="currentColor"/><circle cx="15" cy="33" r="1.8" fill="currentColor"/><circle cx="24" cy="26" r="1.8" fill="currentColor"/><circle cx="24" cy="33" r="1.8" fill="currentColor"/><line x1="32" y1="24" x2="32" y2="35" stroke="currentColor" stroke-width="2.5"/><line x1="26.5" y1="29.5" x2="37.5" y2="29.5" stroke="currentColor" stroke-width="2.5"/></svg>
       </div>
       <h1 class="brand-title">CALC BATTLES</h1>
-      <p class="brand-sub">Solve fast. Score first. Win the clash.</p>
+      <p class="brand-sub">First to the right answer gets the point.</p>
     </div>
 
     <div class="auth-card">
-      <p class="auth-label">Sign in to queue up</p>
+      <p class="auth-label">Sign in</p>
       <button class="auth-btn auth-google" id="btn-google">
         <svg viewBox="0 0 24 24" width="20" height="20"><path fill="#EA4335" d="M12 10.2v3.9h5.5c-.24 1.4-1.7 4.1-5.5 4.1-3.3 0-6-2.7-6-6.1s2.7-6.1 6-6.1c1.9 0 3.1.8 3.9 1.5l2.6-2.5C16.9 3.4 14.7 2.4 12 2.4 6.9 2.4 2.7 6.6 2.7 11.9S6.9 21.5 12 21.5c6.9 0 9.3-4.9 9.3-7.4 0-.5-.1-.9-.1-1.2H12z"/></svg>
         Continue with Google
@@ -34,7 +34,7 @@
         <svg viewBox="0 0 24 24" width="20" height="20"><path fill="#5865F2" d="M20.3 5.4A17.5 17.5 0 0 0 15.9 4c-.2.4-.5.9-.6 1.3a16 16 0 0 0-4.6 0A9 9 0 0 0 10 4a17.4 17.4 0 0 0-4.4 1.4C2.9 9.3 2.2 13 2.5 16.7a17.6 17.6 0 0 0 5.4 2.7c.4-.6.8-1.2 1.1-1.9-.6-.2-1.2-.5-1.7-.9l.4-.3a12.6 12.6 0 0 0 10.6 0l.4.3c-.5.4-1.1.7-1.7.9.3.7.7 1.3 1.1 1.9a17.5 17.5 0 0 0 5.4-2.7c.4-4.3-.7-8-2.9-11.3zM9.7 14.4c-.9 0-1.6-.9-1.6-1.9s.7-1.9 1.6-1.9 1.6.9 1.6 1.9-.7 1.9-1.6 1.9zm5.6 0c-.9 0-1.6-.9-1.6-1.9s.7-1.9 1.6-1.9 1.6.9 1.6 1.9-.7 1.9-1.6 1.9z"/></svg>
         Continue with Discord
       </button>
-      <p class="auth-fine">This is a self-contained demo — sign-in creates a local session only.</p>
+      <p class="auth-fine">Runs locally in this demo build — no server behind it yet, so nothing's saved after you close the tab.</p>
     </div>
   </div>
 </section>
@@ -43,7 +43,7 @@
 <div class="modal-overlay" id="modal-name">
   <div class="modal-box name-modal">
     <h2>Pick your callsign</h2>
-    <p class="modal-sub">This is how opponents will see you on the board.</p>
+    <p class="modal-sub">Opponents will see this in the lobby and on the scoreboard.</p>
     <input type="text" id="input-username" maxlength="14" placeholder="e.g. VectorVex" autocomplete="off">
     <button class="btn-primary full" id="btn-confirm-name">Enter the arena</button>
   </div>
@@ -65,7 +65,6 @@
     <h1 class="menu-logo">CALC<span>BATTLES</span></h1>
     <div class="menu-buttons">
       <button class="btn-play" id="btn-play">
-        <span class="btn-play-glow"></span>
         <span class="btn-play-label">PLAY</span>
       </button>
       <button class="btn-discord" id="btn-discord-menu">
@@ -91,9 +90,17 @@
       <div class="update-entry">
         <div class="update-tag">v0.4.2</div>
         <div class="update-body">
-          <h3>Overflow rework</h3>
+          <h3>No more free points</h3>
+          <span class="update-date">Sep 8</span>
+          <p>People were typing the target number and slapping +0 or &times;1 on it to "solve" instantly. That's closed now — every submission needs an actual operation on different numbers, checked equation by equation, not just the final answer.</p>
+        </div>
+      </div>
+      <div class="update-entry">
+        <div class="update-tag">v0.4.2</div>
+        <div class="update-body">
+          <h3>Overflow moved to a fixed time</h3>
           <span class="update-date">Sep 6</span>
-          <p>Overflow now hits at the 2-minute mark instead of a random window, so both players can plan around it. Fixed a bug where the purple flash would linger after the round ended.</p>
+          <p>Overflow now always hits at the 2-minute mark instead of a random window. Also fixed the purple flash sticking around after the round already ended.</p>
         </div>
       </div>
       <div class="update-entry">
@@ -101,31 +108,31 @@
         <div class="update-body">
           <h3>Friend codes</h3>
           <span class="update-date">Sep 1</span>
-          <p>Every account now gets a permanent friend code, visible on your profile card. Lobby codes are unaffected and still expire after each match.</p>
+          <p>Your account now has a permanent friend code on your profile card. Lobby codes are separate and still expire after each match.</p>
         </div>
       </div>
       <div class="update-entry">
         <div class="update-tag">v0.3.5</div>
         <div class="update-body">
-          <h3>Duos, Battle Royale, Tower Defense — coming soon</h3>
+          <h3>Duos, Battle Royale, and Tower Defense are next</h3>
           <span class="update-date">Aug 24</span>
-          <p>Early builds of three new modes are in internal testing. They're locked in the mode select for now while we tune balance.</p>
+          <p>All three are in testing right now, which is why they're locked in mode select. No ETA yet — we'd rather they launch balanced than fast.</p>
         </div>
       </div>
       <div class="update-entry">
         <div class="update-tag">v0.3.0</div>
         <div class="update-body">
-          <h3>Clash bar</h3>
+          <h3>Clash bar replaces the old scoreboard</h3>
           <span class="update-date">Aug 15</span>
-          <p>Replaced the old side-by-side scoreboard with a single center clash bar so momentum swings are easier to read at a glance.</p>
+          <p>One bar in the middle instead of two separate numbers on each side. Easier to tell who's actually winning mid-match.</p>
         </div>
       </div>
       <div class="update-entry">
         <div class="update-tag">v0.1.0</div>
         <div class="update-body">
-          <h3>Casual launch</h3>
+          <h3>Launch</h3>
           <span class="update-date">Aug 1</span>
-          <p>Calc Battles is live. Queue into Casual, solve for the target number before your opponent, and climb the rank ladder.</p>
+          <p>Casual mode is live. Get the equation right before your opponent does.</p>
         </div>
       </div>
     </div>
@@ -317,6 +324,7 @@
       <div class="calc-expr" id="calc-expr">&nbsp;</div>
       <div class="calc-preview" id="calc-preview">= 0</div>
     </div>
+    <p class="calc-hint">No free points — an equation needs a real operation, and +0 / &times;1 won't fly.</p>
     <div class="calc-grid">
       <button class="calc-btn fn" data-key="clear">C</button>
       <button class="calc-btn fn" data-key="(">(</button>
