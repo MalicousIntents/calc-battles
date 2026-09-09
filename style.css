@@ -88,9 +88,7 @@ svg{ display:block; }
 .brand-icon{ filter: drop-shadow(0 0 18px rgba(255,184,76,.45)); animation: floatY 4.5s ease-in-out infinite; }
 @keyframes floatY{ 0%,100%{ transform:translateY(0); } 50%{ transform:translateY(-6px); } }
 .brand-title{
-  margin:0; font-size:2.6rem; letter-spacing:.06em; font-weight:700;
-  background: linear-gradient(90deg, var(--text) 30%, var(--gold) 100%);
-  -webkit-background-clip:text; background-clip:text; color:transparent;
+  margin:0; font-size:2.6rem; letter-spacing:.06em; font-weight:700; color: var(--text);
 }
 .brand-sub{ margin:10px 0 0; color:var(--text-dim); font-size:.95rem; }
 
@@ -253,28 +251,21 @@ svg{ display:block; }
 .menu-buttons{ display:flex; flex-direction:column; align-items:center; gap:18px; }
 
 .btn-play{
-  position:relative; width:230px; height:230px; border-radius:50%; border:none;
-  background: radial-gradient(circle at 35% 30%, #2456c9, #0d1f4a 70%);
-  display:flex; align-items:center; justify-content:center; overflow:visible;
-  transition: transform .2s var(--ease);
+  position:relative; width:240px; height:100px; border-radius:18px; border:none;
+  background: var(--blue);
+  box-shadow: 0 7px 0 #1d3f96, 0 16px 30px rgba(76,141,255,.28);
+  display:flex; align-items:center; justify-content:center; overflow:hidden;
+  transition: transform .09s ease, box-shadow .09s ease;
 }
-.btn-play:hover{ transform: scale(1.045); }
-.btn-play:active{ transform: scale(.98); }
-.btn-play-glow{
-  position:absolute; inset:-10px; border-radius:50%;
-  background: conic-gradient(from 0deg, var(--blue), var(--violet), var(--gold), var(--blue));
-  filter: blur(2px); opacity:.85; z-index:-1;
-  animation: spin 6s linear infinite;
+.btn-play:hover{ filter: brightness(1.06); }
+.btn-play:active{ transform: translateY(5px); box-shadow: 0 2px 0 #1d3f96, 0 6px 14px rgba(76,141,255,.22); }
+.btn-play::after{
+  content:'='; position:absolute; right:16px; bottom:-6px;
+  font-family:'Space Mono', monospace; font-size:3.4rem; font-weight:700;
+  color: rgba(255,255,255,.12); pointer-events:none;
 }
-.btn-play::before{
-  content:''; position:absolute; inset:6px; border-radius:50%;
-  background: radial-gradient(circle at 35% 30%, #2f64e0, #0a1836 75%);
-  z-index:0;
-}
-@keyframes spin{ to{ transform: rotate(360deg); } }
 .btn-play-label{
-  position:relative; z-index:1; font-size:1.7rem; font-weight:700; letter-spacing:.12em; color:#fff;
-  text-shadow: 0 0 22px rgba(76,141,255,.9);
+  position:relative; z-index:1; font-size:1.5rem; font-weight:700; letter-spacing:.1em; color:#fff;
 }
 
 .btn-discord, .btn-updates{
@@ -446,6 +437,7 @@ svg{ display:block; }
 .calc-expr.shake{ animation: exprShake .35s; color: var(--red); }
 @keyframes exprShake{ 0%,100%{ transform: translateX(0);} 25%{ transform: translateX(-6px);} 75%{ transform: translateX(6px);} }
 .calc-preview{ font-family:'Space Mono', monospace; font-size:.8rem; color: var(--text-faint); margin-top:4px; }
+.calc-hint{ font-size:.72rem; color: var(--text-faint); margin:0 0 12px; line-height:1.4; }
 
 .calc-grid{ display:grid; grid-template-columns: repeat(4,1fr); gap:9px; margin-bottom:14px; }
 .calc-btn{
