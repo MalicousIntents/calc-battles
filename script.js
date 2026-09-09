@@ -7,8 +7,6 @@ const RANKS = [
   { name:'Diamond',  min:45 },
 ];
 
-const OPPONENT_NAMES = ['RootRunner','ZeroSum','PrimeShift','NullVector','FluxDelta','EchoDigit','ByteRadical','NovaFraction'];
-
 const state = {
   user: null,
   pendingAuthProvider: null,
@@ -225,14 +223,32 @@ function initMatchmakingUI(){
       if($('lobby-code-display')) $('lobby-code-display').textContent = state.lobbyCode;
       if($('mm-choice')) $('mm-choice').style.display = 'none';
       if($('mm-create')) $('mm-create').style.display = '';
-      const waitMs = 2200 + Math.random()*1800;
+      
+      const channel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('calc_battles_lobbies') : null;
+      if(channel){
+        channel.postMessage({ type: 'HOST_CREATED', code: state.lobbyCode, hostName: state.user.name });
+        channel.onmessage = (event) => {
+          if(event.data && event.data.type === 'JOIN_LOBBY' && event.data.code === state.lobbyCode){
+            clearTimeout(state.mmTimeout);
+            state.opponentName = event.data.guestName;
+            if($('mm-create')) $('mm-create').style.display = 'none';
+            if($('mm-found')) $('mm-found').style.display = '';
+            if($('mm-found-name')) $('mm-found-name').textContent = `${state.opponentName} joined your lobby!`;
+            setTimeout(() => { 
+              channel.close();
+              closeModal('modal-matchmaking'); 
+              launchRealtimeBattle(channel); 
+            }, 1500);
+          }
+        };
+      }
+
       state.mmTimeout = setTimeout(() => {
-        state.opponentName = OPPONENT_NAMES[Math.floor(Math.random()*OPPONENT_NAMES.length)];
+        if(channel) channel.close();
         if($('mm-create')) $('mm-create').style.display = 'none';
-        if($('mm-found')) $('mm-found').style.display = '';
-        if($('mm-found-name')) $('mm-found-name').textContent = `${state.opponentName} joined using your code`;
-        setTimeout(() => { closeModal('modal-matchmaking'); launchBattle(); }, 1400);
-      }, waitMs);
+        if($('mm-choice')) $('mm-choice').style.display = '';
+        alert('Lobby timed out: No player joined using your code.');
+      }, 60000);
     });
   }
 
@@ -249,14 +265,30 @@ function initMatchmakingUI(){
   const connectCodeBtn = $('btn-connect-code');
   if(connectCodeBtn){
     connectCodeBtn.addEventListener('click', () => {
+      const row = $('code-input-row');
+      if(!row) return;
+      const inputs = Array.from(row.querySelectorAll('input'));
+      const code = inputs.map(i => i.value).join('').toUpperCase();
+      if(code.length !== 7) return;
+
       if($('mm-join')) $('mm-join').style.display = 'none';
       if($('mm-found')) $('mm-found').style.display = '';
-      if($('mm-found-name')) $('mm-found-name').textContent = 'Connecting to host…';
-      state.opponentName = OPPONENT_NAMES[Math.floor(Math.random()*OPPONENT_NAMES.length)];
-      setTimeout(() => {
-        if($('mm-found-name')) $('mm-found-name').textContent = `Matched with ${state.opponentName}`;
-      }, 900);
-      setTimeout(() => { closeModal('modal-matchmaking'); launchBattle(); }, 2000);
+      if($('mm-found-name')) $('mm-found-name').textContent = `Connecting to lobby ${code}...`;
+
+      const channel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('calc_battles_lobbies') : null;
+      if(channel){
+        channel.postMessage({ type: 'JOIN_LOBBY', code: code, guestName: state.user.name });
+        state.lobbyCode = code;
+        setTimeout(() => {
+          if($('mm-found-name')) $('mm-found-name').textContent = `Connected! Launching match...`;
+          setTimeout(() => {
+            closeModal('modal-matchmaking');
+            launchRealtimeBattle(channel);
+          }, 1200);
+        }, 1000);
+      } else {
+        if($('mm-found-name')) $('mm-found-name').textContent = 'Error: BroadcastChannel not supported in this browser.';
+      }
     });
   }
 
@@ -270,16 +302,9 @@ const OVERFLOW_DURATION = 30;
 
 function randomTarget(){
   const sign = Math.random() < 0.5 ? -1 : 1;
-  let magnitude;
-  if (state.selectedMode === 'practice') {
-    if (state.practiceDifficulty === 'easy') magnitude = Math.floor(Math.random()*15) + 1;
-    else if (state.practiceDifficulty === 'hard') magnitude = Math.random()*120;
-    else magnitude = Math.floor(Math.random()*45) + 5;
-  } else {
-    magnitude = Math.random() < 0.6 ? Math.floor(Math.random()*30) : Math.random()*80;
-  }
+  let magnitude = Math.random() < 0.6 ? Math.floor(Math.random()*30) : Math.random()*80;
   let val = sign * magnitude;
-  const decimals = (state.selectedMode === 'practice' && state.practiceDifficulty === 'easy') ? 0 : (Math.random() < 0.5 ? 0 : (Math.random() < 0.7 ? 1 : 2));
+  const decimals = Math.random() < 0.5 ? 0 : (Math.random() < 0.7 ? 1 : 2);
   val = Math.round(val * Math.pow(10,decimals)) / Math.pow(10,decimals);
   if (val === 0) val = sign * 1;
   return val;
@@ -371,7 +396,35 @@ function evalExpr(expr){
   return isFinite(val) ? val : null;
 }
 
-function launchBattle(){
+let activeMatchChannel = null;
+
+function launchRealtimeBattle(channel){
+  activeMatchChannel = channel;
+  if(activeMatchChannel){
+    activeMatchChannel.onmessage = (event) => {
+      const data = event.data;
+      if(!data || !state.match) return;
+      if(data.type === 'PLAYER_SCORE'){
+        state.match.oppScore = data.score;
+        if($('battle-opp-score')) $('battle-opp-score').textContent = state.match.oppScore;
+        bump('battle-opp-score');
+        pushFeed(`${state.opponentName} +${data.points}`, 'theirs');
+        updateClashBar();
+      } else if(data.type === 'NEXT_ROUND'){
+        state.match.target = data.target;
+        state.match.roundSolved = false;
+        resetCalc();
+        const el = $('target-number');
+        if(el){
+          el.textContent = fmtNum(state.match.target);
+          el.classList.remove('swap');
+          void el.offsetWidth;
+          el.classList.add('swap');
+        }
+      }
+    };
+  }
+
   const u = state.user;
   if($('battle-my-avatar')) $('battle-my-avatar').textContent = u.avatar;
   if($('battle-my-name')) $('battle-my-name').textContent = u.name;
@@ -394,22 +447,71 @@ function launchBattle(){
     overflowSecondsLeft: 0,
     expr: '',
     tickId: null,
-    oppTimeoutId: null,
   };
 
   resetCalc();
   showScreen('screen-battle');
-  nextRound();
+  
+  if(state.isHost){
+    nextRoundRealtime();
+  }
   state.match.tickId = setInterval(tick, 1000);
   updateTimerDisplay();
 }
 
 function launchPracticeBattle(){
   state.opponentName = 'Training Bot';
-  launchBattle();
+  const u = state.user;
+  if($('battle-my-avatar')) $('battle-my-avatar').textContent = u.avatar;
+  if($('battle-my-name')) $('battle-my-name').textContent = u.name;
+  if($('battle-opp-avatar')) $('battle-opp-avatar').textContent = 'T';
+  if($('battle-opp-name')) $('battle-opp-name').textContent = 'Training Bot';
+  if($('battle-my-score')) $('battle-my-score').textContent = '0';
+  if($('battle-opp-score')) $('battle-opp-score').textContent = '0';
+  if($('clash-bar-fill')) $('clash-bar-fill').style.width = '50%';
+  if($('overflow-banner')) $('overflow-banner').classList.remove('active');
+  if($('battle-feed')) $('battle-feed').innerHTML = '';
+
+  state.match = {
+    myScore: 0,
+    oppScore: 0,
+    timeLeft: MATCH_SECONDS,
+    target: 0,
+    roundSolved: false,
+    overflowActive: false,
+    overflowUsed: false,
+    overflowSecondsLeft: 0,
+    expr: '',
+    tickId: null,
+    oppTimeoutId: null,
+  };
+
+  resetCalc();
+  showScreen('screen-battle');
+  nextRoundPractice();
+  state.match.tickId = setInterval(tick, 1000);
+  updateTimerDisplay();
 }
 
-function nextRound(){
+function nextRoundRealtime(){
+  const m = state.match;
+  if (!m) return;
+  m.roundSolved = false;
+  m.target = randomTarget();
+  resetCalc();
+  const el = $('target-number');
+  if(el){
+    el.textContent = fmtNum(m.target);
+    el.classList.remove('swap');
+    void el.offsetWidth;
+    el.classList.add('swap');
+  }
+  if(activeMatchChannel){
+    activeMatchChannel.postMessage({ type: 'NEXT_ROUND', target: m.target });
+  }
+}
+
+function nextRoundPractice(){
   const m = state.match;
   if (!m) return;
   m.roundSolved = false;
@@ -421,50 +523,40 @@ function nextRound(){
   el.classList.remove('swap');
   void el.offsetWidth;
   el.classList.add('swap');
-  scheduleOpponent();
+  scheduleBot();
 }
 
-function scheduleOpponent(){
+function scheduleBot(){
   const m = state.match;
-  if(!m) return;
+  if(!m || state.selectedMode !== 'practice') return;
   clearTimeout(m.oppTimeoutId);
   const attempt = () => {
     if (!m || m.roundSolved || m.timeLeft <= 0) return;
-    const botChance = state.selectedMode === 'practice' 
-      ? (state.practiceDifficulty === 'easy' ? 0.55 : state.practiceDifficulty === 'hard' ? 0.90 : 0.75) 
-      : 0.82;
-    const succeeds = Math.random() < botChance;
-    if (succeeds){
-      opponentScores();
+    const botChance = state.practiceDifficulty === 'easy' ? 0.55 : state.practiceDifficulty === 'hard' ? 0.90 : 0.75;
+    if (Math.random() < botChance){
+      m.roundSolved = true;
+      const mult = m.overflowActive ? 2 : 1;
+      const points = (100 + 50) * mult;
+      m.oppScore += points;
+      if($('battle-opp-score')) $('battle-opp-score').textContent = m.oppScore;
+      bump('battle-opp-score');
+      pushFeed(`Training Bot +${points}`, 'theirs');
+      updateClashBar();
+      setTimeout(nextRoundPractice, 900);
     } else {
-      pushFeed(`${state.opponentName} misfired`, 'wrong');
-      const delay = state.selectedMode === 'practice' && state.practiceDifficulty === 'easy' ? 2500 : 1400;
-      m.oppTimeoutId = setTimeout(attempt, delay + Math.random()*2200);
+      pushFeed('Training Bot misfired', 'wrong');
+      m.oppTimeoutId = setTimeout(attempt, 1400 + Math.random()*2200);
     }
   };
-  const baseDelay = state.selectedMode === 'practice' && state.practiceDifficulty === 'easy' ? 3500 : 2200;
-  m.oppTimeoutId = setTimeout(attempt, baseDelay + Math.random()*4200);
-}
-
-function opponentScores(){
-  const m = state.match;
-  if (!m || m.roundSolved) return;
-  m.roundSolved = true;
-  const mult = m.overflowActive ? 2 : 1;
-  const points = (100 + 50) * mult;
-  m.oppScore += points;
-  if($('battle-opp-score')) $('battle-opp-score').textContent = m.oppScore;
-  bump('battle-opp-score');
-  pushFeed(`${state.opponentName} +${points}`, 'theirs');
-  updateClashBar();
-  setTimeout(nextRound, 900);
+  m.oppTimeoutId = setTimeout(attempt, 2200 + Math.random()*4200);
 }
 
 function playerScores(){
   const m = state.match;
   if(!m) return;
   m.roundSolved = true;
-  clearTimeout(m.oppTimeoutId);
+  if(state.selectedMode === 'practice') clearTimeout(m.oppTimeoutId);
+  
   const mult = m.overflowActive ? 2 : 1;
   const points = (100 + 50) * mult;
   m.myScore += points;
@@ -472,13 +564,25 @@ function playerScores(){
   bump('battle-my-score');
   pushFeed(`You +${points}`, 'mine');
   updateClashBar();
+  
   const subBtn = $('btn-submit');
   if(subBtn){
     subBtn.classList.remove('correct-flash');
     void subBtn.offsetWidth;
     subBtn.classList.add('correct-flash');
   }
-  setTimeout(nextRound, 900);
+
+  if(activeMatchChannel){
+    activeMatchChannel.postMessage({ type: 'PLAYER_SCORE', score: m.myScore, points });
+  }
+
+  setTimeout(() => {
+    if(state.selectedMode === 'practice'){
+      nextRoundPractice();
+    } else if(state.isHost){
+      nextRoundRealtime();
+    }
+  }, 900);
 }
 
 function bump(id){
@@ -559,7 +663,8 @@ function endMatch(){
   const m = state.match;
   if(!m) return;
   clearInterval(m.tickId);
-  clearTimeout(m.oppTimeoutId);
+  if(state.selectedMode === 'practice') clearTimeout(m.oppTimeoutId);
+  if(activeMatchChannel) { activeMatchChannel.close(); activeMatchChannel = null; }
   if($('overflow-banner')) $('overflow-banner').classList.remove('active');
 
   const won = m.myScore > m.oppScore;
