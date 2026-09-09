@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Calc Battles</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<canvas id="bg-canvas"></canvas>
+
+<!-- ============ LOGIN SCREEN ============ -->
+<section class="screen active" id="screen-login">
+  <div class="login-wrap">
+    <div class="brand">
+      <div class="brand-mark">
+        <svg viewBox="0 0 48 48" class="brand-icon"><path d="M10 8h28a2 2 0 0 1 2 2v28a2 2 0 0 1-2 2H10a2 2 0 0 1-2-2V10a2 2 0 0 1 2-2z" fill="none" stroke="currentColor" stroke-width="2.5"/><line x1="8" y1="18" x2="40" y2="18" stroke="currentColor" stroke-width="2.5"/><circle cx="15" cy="26" r="1.8" fill="currentColor"/><circle cx="15" cy="33" r="1.8" fill="currentColor"/><circle cx="24" cy="26" r="1.8" fill="currentColor"/><circle cx="24" cy="33" r="1.8" fill="currentColor"/><line x1="32" y1="24" x2="32" y2="35" stroke="currentColor" stroke-width="2.5"/><line x1="26.5" y1="29.5" x2="37.5" y2="29.5" stroke="currentColor" stroke-width="2.5"/></svg>
+      </div>
+      <h1 class="brand-title">CALC BATTLES</h1>
+      <p class="brand-sub">Solve fast. Score first. Win the clash.</p>
+    </div>
+
+    <div class="auth-card">
+      <p class="auth-label">Sign in to queue up</p>
+      <button class="auth-btn auth-google" id="btn-google">
+        <svg viewBox="0 0 24 24" width="20" height="20"><path fill="#EA4335" d="M12 10.2v3.9h5.5c-.24 1.4-1.7 4.1-5.5 4.1-3.3 0-6-2.7-6-6.1s2.7-6.1 6-6.1c1.9 0 3.1.8 3.9 1.5l2.6-2.5C16.9 3.4 14.7 2.4 12 2.4 6.9 2.4 2.7 6.6 2.7 11.9S6.9 21.5 12 21.5c6.9 0 9.3-4.9 9.3-7.4 0-.5-.1-.9-.1-1.2H12z"/></svg>
+        Continue with Google
+      </button>
+      <button class="auth-btn auth-discord" id="btn-discord-login">
+        <svg viewBox="0 0 24 24" width="20" height="20"><path fill="#5865F2" d="M20.3 5.4A17.5 17.5 0 0 0 15.9 4c-.2.4-.5.9-.6 1.3a16 16 0 0 0-4.6 0A9 9 0 0 0 10 4a17.4 17.4 0 0 0-4.4 1.4C2.9 9.3 2.2 13 2.5 16.7a17.6 17.6 0 0 0 5.4 2.7c.4-.6.8-1.2 1.1-1.9-.6-.2-1.2-.5-1.7-.9l.4-.3a12.6 12.6 0 0 0 10.6 0l.4.3c-.5.4-1.1.7-1.7.9.3.7.7 1.3 1.1 1.9a17.5 17.5 0 0 0 5.4-2.7c.4-4.3-.7-8-2.9-11.3zM9.7 14.4c-.9 0-1.6-.9-1.6-1.9s.7-1.9 1.6-1.9 1.6.9 1.6 1.9-.7 1.9-1.6 1.9zm5.6 0c-.9 0-1.6-.9-1.6-1.9s.7-1.9 1.6-1.9 1.6.9 1.6 1.9-.7 1.9-1.6 1.9z"/></svg>
+        Continue with Discord
+      </button>
+      <p class="auth-fine">This is a self-contained demo — sign-in creates a local session only.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ NAME PROMPT MODAL ============ -->
+<div class="modal-overlay" id="modal-name">
+  <div class="modal-box name-modal">
+    <h2>Pick your callsign</h2>
+    <p class="modal-sub">This is how opponents will see you on the board.</p>
+    <input type="text" id="input-username" maxlength="14" placeholder="e.g. VectorVex" autocomplete="off">
+    <button class="btn-primary full" id="btn-confirm-name">Enter the arena</button>
+  </div>
+</div>
+
+<!-- ============ MAIN MENU ============ -->
+<section class="screen" id="screen-menu">
+  <div class="topbar">
+    <div class="user-chip" id="menu-user-chip">
+      <div class="avatar" id="menu-avatar">V</div>
+      <div class="user-chip-text">
+        <span class="user-chip-name" id="menu-username">Player</span>
+        <span class="user-chip-rank" id="menu-rank">Unranked</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="menu-center">
+    <h1 class="menu-logo">CALC<span>BATTLES</span></h1>
+    <div class="menu-buttons">
+      <button class="btn-play" id="btn-play">
+        <span class="btn-play-glow"></span>
+        <span class="btn-play-label">PLAY</span>
+      </button>
+      <button class="btn-discord" id="btn-discord-menu">
+        <svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M20.3 5.4A17.5 17.5 0 0 0 15.9 4c-.2.4-.5.9-.6 1.3a16 16 0 0 0-4.6 0A9 9 0 0 0 10 4a17.4 17.4 0 0 0-4.4 1.4C2.9 9.3 2.2 13 2.5 16.7a17.6 17.6 0 0 0 5.4 2.7c.4-.6.8-1.2 1.1-1.9-.6-.2-1.2-.5-1.7-.9l.4-.3a12.6 12.6 0 0 0 10.6 0l.4.3c-.5.4-1.1.7-1.7.9.3.7.7 1.3 1.1 1.9a17.5 17.5 0 0 0 5.4-2.7c.4-4.3-.7-8-2.9-11.3zM9.7 14.4c-.9 0-1.6-.9-1.6-1.9s.7-1.9 1.6-1.9 1.6.9 1.6 1.9-.7 1.9-1.6 1.9zm5.6 0c-.9 0-1.6-.9-1.6-1.9s.7-1.9 1.6-1.9 1.6.9 1.6 1.9-.7 1.9-1.6 1.9z"/></svg>
+        Join the Discord
+      </button>
+      <button class="btn-updates" id="btn-updates">
+        <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm1 15h-2v-2h2zm0-4h-2V7h2z"/></svg>
+        Update logs
+      </button>
+    </div>
+  </div>
+</section>
+
+<!-- ============ UPDATE LOGS MODAL ============ -->
+<div class="modal-overlay" id="modal-updates">
+  <div class="modal-box updates-modal">
+    <div class="modal-head">
+      <h2>Update logs</h2>
+      <button class="modal-close" data-close="modal-updates">&times;</button>
+    </div>
+    <div class="updates-list">
+      <div class="update-entry">
+        <div class="update-tag">v0.4.2</div>
+        <div class="update-body">
+          <h3>Overflow rework</h3>
+          <span class="update-date">Sep 6</span>
+          <p>Overflow now hits at the 2-minute mark instead of a random window, so both players can plan around it. Fixed a bug where the purple flash would linger after the round ended.</p>
+        </div>
+      </div>
+      <div class="update-entry">
+        <div class="update-tag">v0.4.0</div>
+        <div class="update-body">
+          <h3>Friend codes</h3>
+          <span class="update-date">Sep 1</span>
+          <p>Every account now gets a permanent friend code, visible on your profile card. Lobby codes are unaffected and still expire after each match.</p>
+        </div>
+      </div>
+      <div class="update-entry">
+        <div class="update-tag">v0.3.5</div>
+        <div class="update-body">
+          <h3>Duos, Battle Royale, Tower Defense — coming soon</h3>
+          <span class="update-date">Aug 24</span>
+          <p>Early builds of three new modes are in internal testing. They're locked in the mode select for now while we tune balance.</p>
+        </div>
+      </div>
+      <div class="update-entry">
+        <div class="update-tag">v0.3.0</div>
+        <div class="update-body">
+          <h3>Clash bar</h3>
+          <span class="update-date">Aug 15</span>
+          <p>Replaced the old side-by-side scoreboard with a single center clash bar so momentum swings are easier to read at a glance.</p>
+        </div>
+      </div>
+      <div class="update-entry">
+        <div class="update-tag">v0.1.0</div>
+        <div class="update-body">
+          <h3>Casual launch</h3>
+          <span class="update-date">Aug 1</span>
+          <p>Calc Battles is live. Queue into Casual, solve for the target number before your opponent, and climb the rank ladder.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ LOBBY SCREEN ============ -->
+<section class="screen" id="screen-lobby">
+  <div class="lobby-topbar">
+    <button class="profile-btn" id="btn-profile">
+      <div class="avatar" id="lobby-avatar">V</div>
+      <div class="profile-btn-text">
+        <span class="profile-btn-name" id="lobby-username">Player</span>
+        <span class="profile-btn-rank" id="lobby-rank">Unranked</span>
+      </div>
+      <svg class="chev" viewBox="0 0 24 24" width="14" height="14"><path fill="currentColor" d="M12 15.5 5 8.5 6.4 7 12 12.6 17.6 7 19 8.5z"/></svg>
+    </button>
+    <button class="back-to-menu-btn" id="btn-back-menu">&larr; Menu</button>
+  </div>
+
+  <div class="lobby-center">
+    <p class="lobby-eyebrow">Select mode</p>
+    <div class="mode-grid">
+      <button class="mode-card mode-casual" data-mode="casual" data-available="true">
+        <div class="mode-card-art">
+          <svg viewBox="0 0 64 64" width="42" height="42"><rect x="10" y="8" width="44" height="48" rx="4" fill="none" stroke="currentColor" stroke-width="3"/><line x1="10" y1="20" x2="54" y2="20" stroke="currentColor" stroke-width="3"/><circle cx="20" cy="30" r="2.4" fill="currentColor"/><circle cx="20" cy="40" r="2.4" fill="currentColor"/><circle cx="20" cy="48" r="2.4" fill="currentColor"/><circle cx="32" cy="30" r="2.4" fill="currentColor"/><circle cx="32" cy="40" r="2.4" fill="currentColor"/><circle cx="32" cy="48" r="2.4" fill="currentColor"/><line x1="44" y1="28" x2="44" y2="50" stroke="currentColor" stroke-width="3"/><line x1="36" y1="39" x2="52" y2="39" stroke="currentColor" stroke-width="3"/></svg>
+        </div>
+        <h3>Casual</h3>
+        <p>1v1 &middot; 4 min &middot; Overflow at halftime</p>
+        <span class="mode-status live">Ready</span>
+      </button>
+
+      <button class="mode-card locked" data-mode="duos" data-available="false">
+        <div class="lock-overlay"><svg viewBox="0 0 24 24" width="26" height="26"><path fill="currentColor" d="M12 2a5 5 0 0 0-5 5v3H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2h-1V7a5 5 0 0 0-5-5zm0 2a3 3 0 0 1 3 3v3H9V7a3 3 0 0 1 3-3z"/></svg></div>
+        <div class="mode-card-art">
+          <svg viewBox="0 0 64 64" width="42" height="42"><circle cx="24" cy="24" r="9" fill="none" stroke="currentColor" stroke-width="3"/><circle cx="42" cy="30" r="9" fill="none" stroke="currentColor" stroke-width="3"/><path d="M12 52c1-9 8-14 14-14s11 3 13 8" fill="none" stroke="currentColor" stroke-width="3"/><path d="M32 52c1-8 7-13 14-13s14 5 14 13" fill="none" stroke="currentColor" stroke-width="3"/></svg>
+        </div>
+        <h3>Duos</h3>
+        <p>2v2 team battles</p>
+        <span class="mode-status soon">Soon</span>
+      </button>
+
+      <button class="mode-card locked" data-mode="br" data-available="false">
+        <div class="lock-overlay"><svg viewBox="0 0 24 24" width="26" height="26"><path fill="currentColor" d="M12 2a5 5 0 0 0-5 5v3H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2h-1V7a5 5 0 0 0-5-5zm0 2a3 3 0 0 1 3 3v3H9V7a3 3 0 0 1 3-3z"/></svg></div>
+        <div class="mode-card-art">
+          <svg viewBox="0 0 64 64" width="42" height="42"><polygon points="32,6 58,50 6,50" fill="none" stroke="currentColor" stroke-width="3"/><circle cx="32" cy="34" r="3" fill="currentColor"/><circle cx="22" cy="42" r="3" fill="currentColor"/><circle cx="42" cy="42" r="3" fill="currentColor"/><circle cx="32" cy="46" r="3" fill="currentColor"/></svg>
+        </div>
+        <h3>Battle Royale</h3>
+        <p>Last solver standing</p>
+        <span class="mode-status soon">Soon</span>
+      </button>
+
+      <button class="mode-card locked" data-mode="td" data-available="false">
+        <div class="lock-overlay"><svg viewBox="0 0 24 24" width="26" height="26"><path fill="currentColor" d="M12 2a5 5 0 0 0-5 5v3H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2h-1V7a5 5 0 0 0-5-5zm0 2a3 3 0 0 1 3 3v3H9V7a3 3 0 0 1 3-3z"/></svg></div>
+        <div class="mode-card-art">
+          <svg viewBox="0 0 64 64" width="42" height="42"><rect x="26" y="10" width="12" height="44" fill="none" stroke="currentColor" stroke-width="3"/><rect x="16" y="24" width="10" height="30" fill="none" stroke="currentColor" stroke-width="3"/><rect x="38" y="18" width="10" height="36" fill="none" stroke="currentColor" stroke-width="3"/></svg>
+        </div>
+        <h3>Tower Defense</h3>
+        <p>Solve to power your defenses</p>
+        <span class="mode-status soon">Soon</span>
+      </button>
+    </div>
+
+    <button class="btn-deploy" id="btn-deploy" disabled>Select a mode</button>
+  </div>
+</section>
+
+<!-- ============ PROFILE MODAL ============ -->
+<div class="modal-overlay" id="modal-profile">
+  <div class="modal-box profile-modal">
+    <div class="modal-head">
+      <h2>Profile</h2>
+      <button class="modal-close" data-close="modal-profile">&times;</button>
+    </div>
+    <div class="profile-hero">
+      <div class="avatar big" id="profile-avatar">V</div>
+      <div>
+        <h3 id="profile-username">Player</h3>
+        <span class="profile-rank-badge" id="profile-rank">Unranked</span>
+      </div>
+    </div>
+    <div class="profile-stats">
+      <div class="stat-box"><span class="stat-num" id="stat-wins">0</span><span class="stat-label">Wins</span></div>
+      <div class="stat-box"><span class="stat-num" id="stat-losses">0</span><span class="stat-label">Losses</span></div>
+      <div class="stat-box"><span class="stat-num" id="stat-wr">0%</span><span class="stat-label">Win rate</span></div>
+    </div>
+    <div class="friend-code-row">
+      <div>
+        <span class="fc-label">Friend code</span>
+        <span class="fc-value" id="profile-friendcode">CB-0000-0000</span>
+      </div>
+      <button class="btn-copy" id="btn-copy-fc">Copy</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MATCHMAKING MODAL ============ -->
+<div class="modal-overlay" id="modal-matchmaking">
+  <div class="modal-box matchmaking-modal">
+    <div class="modal-head">
+      <h2 id="mm-title">Casual queue</h2>
+      <button class="modal-close" data-close="modal-matchmaking">&times;</button>
+    </div>
+
+    <div class="mm-panel" id="mm-choice">
+      <p class="modal-sub">Host a match or join a friend's lobby.</p>
+      <div class="mm-choice-row">
+        <button class="mm-choice-btn" id="btn-create-lobby">
+          <svg viewBox="0 0 24 24" width="24" height="24"><path fill="currentColor" d="M12 4v16m-8-8h16" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round"/></svg>
+          <span>Create lobby</span>
+          <small>Get a 7-character code</small>
+        </button>
+        <button class="mm-choice-btn" id="btn-join-lobby">
+          <svg viewBox="0 0 24 24" width="24" height="24"><path fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" d="M15 4h4a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-4M10 8l4 4-4 4M14 12H4"/></svg>
+          <span>Join lobby</span>
+          <small>Enter a friend's code</small>
+        </button>
+      </div>
+    </div>
+
+    <div class="mm-panel" id="mm-create" style="display:none">
+      <p class="modal-sub">Share this code. Waiting for your opponent&hellip;</p>
+      <div class="lobby-code-display" id="lobby-code-display">ABCD123</div>
+      <button class="btn-copy" id="btn-copy-code">Copy code</button>
+      <div class="mm-waiting">
+        <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+        Waiting for opponent
+      </div>
+      <button class="btn-ghost-cancel" id="btn-cancel-create">Cancel</button>
+    </div>
+
+    <div class="mm-panel" id="mm-join" style="display:none">
+      <p class="modal-sub">Enter the 7-character lobby code.</p>
+      <div class="code-input-row" id="code-input-row"></div>
+      <button class="btn-primary full" id="btn-connect-code" disabled>Connect</button>
+      <button class="btn-ghost-cancel" id="btn-cancel-join">Cancel</button>
+    </div>
+
+    <div class="mm-panel" id="mm-found" style="display:none">
+      <div class="opponent-found">
+        <svg viewBox="0 0 24 24" width="46" height="46"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"/><path fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" d="m7 12 3.2 3.2L17 8.5"/></svg>
+        <h3>Opponent found</h3>
+        <p id="mm-found-name">Challenger joined</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ BATTLE SCREEN ============ -->
+<section class="screen" id="screen-battle">
+  <div class="overflow-flash" id="overflow-flash"></div>
+  <div class="overflow-banner" id="overflow-banner">
+    <span class="overflow-banner-title">OVERFLOW</span>
+    <span class="overflow-banner-sub">2&times; points &middot; <span id="overflow-time">30</span>s</span>
+  </div>
+
+  <div class="battle-hud">
+    <div class="hud-player mine">
+      <div class="avatar small" id="battle-my-avatar">V</div>
+      <div class="hud-player-info">
+        <span class="hud-name" id="battle-my-name">You</span>
+        <span class="hud-score" id="battle-my-score">0</span>
+      </div>
+    </div>
+
+    <div class="hud-center">
+      <div class="match-timer" id="match-timer">4:00</div>
+      <p class="target-label">SOLVE FOR</p>
+      <div class="target-number" id="target-number">0</div>
+      <div class="clash-bar-track">
+        <div class="clash-bar-fill" id="clash-bar-fill" style="width:50%"></div>
+        <div class="clash-bar-mid"></div>
+      </div>
+    </div>
+
+    <div class="hud-player theirs">
+      <div class="hud-player-info">
+        <span class="hud-name" id="battle-opp-name">Opponent</span>
+        <span class="hud-score" id="battle-opp-score">0</span>
+      </div>
+      <div class="avatar small opp" id="battle-opp-avatar">O</div>
+    </div>
+  </div>
+
+  <div class="feed" id="battle-feed"></div>
+
+  <div class="calc-wrap">
+    <div class="calc-display">
+      <div class="calc-expr" id="calc-expr">&nbsp;</div>
+      <div class="calc-preview" id="calc-preview">= 0</div>
+    </div>
+    <div class="calc-grid">
+      <button class="calc-btn fn" data-key="clear">C</button>
+      <button class="calc-btn fn" data-key="(">(</button>
+      <button class="calc-btn fn" data-key=")">)</button>
+      <button class="calc-btn fn" data-key="back">&#9003;</button>
+
+      <button class="calc-btn" data-key="7">7</button>
+      <button class="calc-btn" data-key="8">8</button>
+      <button class="calc-btn" data-key="9">9</button>
+      <button class="calc-btn op" data-key="/">&divide;</button>
+
+      <button class="calc-btn" data-key="4">4</button>
+      <button class="calc-btn" data-key="5">5</button>
+      <button class="calc-btn" data-key="6">6</button>
+      <button class="calc-btn op" data-key="*">&times;</button>
+
+      <button class="calc-btn" data-key="1">1</button>
+      <button class="calc-btn" data-key="2">2</button>
+      <button class="calc-btn" data-key="3">3</button>
+      <button class="calc-btn op" data-key="-">&minus;</button>
+
+      <button class="calc-btn" data-key="0">0</button>
+      <button class="calc-btn" data-key=".">.</button>
+      <button class="calc-btn" data-key="neg">&plusmn;</button>
+      <button class="calc-btn op" data-key="+">+</button>
+    </div>
+    <button class="btn-submit" id="btn-submit">SUBMIT</button>
+  </div>
+</section>
+
+<!-- ============ RESULTS SCREEN ============ -->
+<section class="screen" id="screen-results">
+  <div class="results-card">
+    <p class="results-eyebrow" id="results-eyebrow">MATCH COMPLETE</p>
+    <h1 class="results-headline" id="results-headline">Victory</h1>
+    <div class="results-score-row">
+      <div class="results-score mine">
+        <span class="results-score-num" id="results-my-score">0</span>
+        <span class="results-score-label">You</span>
+      </div>
+      <span class="results-vs">vs</span>
+      <div class="results-score theirs">
+        <span class="results-score-num" id="results-opp-score">0</span>
+        <span class="results-score-label" id="results-opp-name-label">Opponent</span>
+      </div>
+    </div>
+    <div class="results-actions">
+      <button class="btn-primary" id="btn-play-again">Play again</button>
+      <button class="btn-secondary" id="btn-to-lobby">Back to lobby</button>
+    </div>
+  </div>
+</section>
+
+<script src="script.js"></script>
+</body>
+</html>
