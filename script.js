@@ -20,6 +20,7 @@ const state = {
   user: null,          // { name, avatar, wins, losses, friendCode }
   pendingAuthProvider: null,
   selectedMode: null,
+  practiceDifficulty: 'medium',
   lobbyCode: null,
   isHost: false,
   opponentName: null,
@@ -66,6 +67,7 @@ function fmtNum(n){
 --------------------------------------------------------------- */
 function initBackground(){
   const canvas = $('bg-canvas');
+  if(!canvas) return;
   const ctx = canvas.getContext('2d');
   let w, h;
   function resize(){ w = canvas.width = window.innerWidth; h = canvas.height = window.innerHeight; }
@@ -100,15 +102,19 @@ function initBackground(){
 /* ---------------------------------------------------------------
    Auth flow
 --------------------------------------------------------------- */
-function beginAuth(provider){
-  state.pendingAuthProvider = provider;
-  openModal('modal-name');
-  $('input-username').value = '';
-  setTimeout(() => $('input-username').focus(), 50);
+function handleLockedAuth(provider){
+  // Social auths are currently locked/unavailable; focus guest input instead
+  const input = $('input-guest-name');
+  if(input){
+    input.focus();
+    input.classList.add('shake');
+    setTimeout(() => input.classList.remove('shake'), 400);
+  }
 }
 
-function completeAuth(){
-  const name = $('input-username').value.trim() || 'Player';
+function completeGuestAuth(){
+  const input = $('input-guest-name');
+  const name = (input ? input.value.trim() : '') || 'Player';
   state.user = {
     name,
     avatar: name.charAt(0).toUpperCase(),
@@ -116,28 +122,28 @@ function completeAuth(){
     losses: Math.floor(Math.random()*8),
     friendCode: randomFriendCode(),
   };
-  closeModal('modal-name');
   renderUserChrome();
   showScreen('screen-menu');
 }
 
 function renderUserChrome(){
   const u = state.user;
+  if (!u) return;
   const rank = rankForWins(u.wins);
   [ ['menu-avatar','avatar'], ['lobby-avatar','avatar'], ['profile-avatar','avatar'] ].forEach(([id]) => {
     if ($(id)) $(id).textContent = u.avatar;
   });
-  $('menu-username').textContent = u.name;
-  $('menu-rank').textContent = rank;
-  $('lobby-username').textContent = u.name;
-  $('lobby-rank').textContent = rank;
-  $('profile-username').textContent = u.name;
-  $('profile-rank').textContent = rank;
-  $('profile-friendcode').textContent = u.friendCode;
+  if($('menu-username')) $('menu-username').textContent = u.name;
+  if($('menu-rank')) $('menu-rank').textContent = rank;
+  if($('lobby-username')) $('lobby-username').textContent = u.name;
+  if($('lobby-rank')) $('lobby-rank').textContent = rank;
+  if($('profile-username')) $('profile-username').textContent = u.name;
+  if($('profile-rank')) $('profile-rank').textContent = rank;
+  if($('profile-friendcode')) $('profile-friendcode').textContent = u.friendCode;
   const total = u.wins + u.losses;
-  $('stat-wins').textContent = u.wins;
-  $('stat-losses').textContent = u.losses;
-  $('stat-wr').textContent = total ? Math.round((u.wins/total)*100) + '%' : '0%';
+  if($('stat-wins')) $('stat-wins').textContent = u.wins;
+  if($('stat-losses')) $('stat-losses').textContent = u.losses;
+  if($('stat-wr')) $('stat-wr').textContent = total ? Math.round((u.wins/total)*100) + '%' : '0%';
 }
 
 /* ---------------------------------------------------------------
@@ -152,14 +158,37 @@ function initLobby(){
       card.classList.add('selected');
       state.selectedMode = card.dataset.mode;
       const btn = $('btn-deploy');
+      if (!btn) return;
       btn.disabled = false;
-      btn.textContent = 'Deploy — Casual';
+      if(state.selectedMode === 'practice'){
+        btn.textContent = 'Deploy — Practice';
+      } else if(state.selectedMode === 'casual'){
+        btn.textContent = 'Deploy — Casual Queue';
+      } else {
+        btn.textContent = 'Deploy — Private Match';
+      }
     });
   });
 
-  $('btn-deploy').addEventListener('click', () => {
-    if (!state.selectedMode) return;
-    openMatchmaking();
+  const deployBtn = $('btn-deploy');
+  if(deployBtn){
+    deployBtn.addEventListener('click', () => {
+      if (!state.selectedMode) return;
+      if (state.selectedMode === 'practice'){
+        openModal('modal-practice-diff');
+      } else {
+        openMatchmaking();
+      }
+    });
+  }
+
+  // Practice difficulty choices
+  qsa('.diff-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      state.practiceDifficulty = btn.dataset.diff;
+      closeModal('modal-practice-diff');
+      launchPracticeBattle();
+    });
   });
 }
 
@@ -167,20 +196,21 @@ function initLobby(){
    Matchmaking
 --------------------------------------------------------------- */
 function resetMatchmakingPanels(){
-  $('mm-choice').style.display = '';
-  $('mm-create').style.display = 'none';
-  $('mm-join').style.display = 'none';
-  $('mm-found').style.display = 'none';
+  if($('mm-choice')) $('mm-choice').style.display = '';
+  if($('mm-create')) $('mm-create').style.display = 'none';
+  if($('mm-join')) $('mm-join').style.display = 'none';
+  if($('mm-found')) $('mm-found').style.display = 'none';
 }
 
 function openMatchmaking(){
   resetMatchmakingPanels();
-  $('mm-title').textContent = 'Casual queue';
+  if($('mm-title')) $('mm-title').textContent = state.selectedMode === 'ranked' ? 'Ranked queue' : 'Casual queue';
   openModal('modal-matchmaking');
 }
 
 function buildCodeInputs(){
   const row = $('code-input-row');
+  if (!row) return;
   row.innerHTML = '';
   const inputs = [];
   for(let i=0;i<7;i++){
@@ -202,46 +232,55 @@ function buildCodeInputs(){
 }
 function checkCodeComplete(inputs){
   const full = inputs.every(i => i.value.length === 1);
-  $('btn-connect-code').disabled = !full;
+  if($('btn-connect-code')) $('btn-connect-code').disabled = !full;
 }
 
 function initMatchmakingUI(){
-  $('btn-create-lobby').addEventListener('click', () => {
-    state.isHost = true;
-    state.lobbyCode = randomLobbyCode();
-    $('lobby-code-display').textContent = state.lobbyCode;
-    $('mm-choice').style.display = 'none';
-    $('mm-create').style.display = '';
-    const waitMs = 2200 + Math.random()*1800;
-    state.mmTimeout = setTimeout(() => {
+  const createLobbyBtn = $('btn-create-lobby');
+  if(createLobbyBtn){
+    createLobbyBtn.addEventListener('click', () => {
+      state.isHost = true;
+      state.lobbyCode = randomLobbyCode();
+      if($('lobby-code-display')) $('lobby-code-display').textContent = state.lobbyCode;
+      if($('mm-choice')) $('mm-choice').style.display = 'none';
+      if($('mm-create')) $('mm-create').style.display = '';
+      const waitMs = 2200 + Math.random()*1800;
+      state.mmTimeout = setTimeout(() => {
+        state.opponentName = OPPONENT_NAMES[Math.floor(Math.random()*OPPONENT_NAMES.length)];
+        if($('mm-create')) $('mm-create').style.display = 'none';
+        if($('mm-found')) $('mm-found').style.display = '';
+        if($('mm-found-name')) $('mm-found-name').textContent = `${state.opponentName} joined using your code`;
+        setTimeout(() => { closeModal('modal-matchmaking'); launchBattle(); }, 1400);
+      }, waitMs);
+    });
+  }
+
+  const joinLobbyBtn = $('btn-join-lobby');
+  if(joinLobbyBtn){
+    joinLobbyBtn.addEventListener('click', () => {
+      state.isHost = false;
+      if($('mm-choice')) $('mm-choice').style.display = 'none';
+      if($('mm-join')) $('mm-join').style.display = '';
+      buildCodeInputs();
+    });
+  }
+
+  const connectCodeBtn = $('btn-connect-code');
+  if(connectCodeBtn){
+    connectCodeBtn.addEventListener('click', () => {
+      if($('mm-join')) $('mm-join').style.display = 'none';
+      if($('mm-found')) $('mm-found').style.display = '';
+      if($('mm-found-name')) $('mm-found-name').textContent = 'Connecting to host…';
       state.opponentName = OPPONENT_NAMES[Math.floor(Math.random()*OPPONENT_NAMES.length)];
-      $('mm-create').style.display = 'none';
-      $('mm-found').style.display = '';
-      $('mm-found-name').textContent = `${state.opponentName} joined using your code`;
-      setTimeout(() => { closeModal('modal-matchmaking'); launchBattle(); }, 1400);
-    }, waitMs);
-  });
+      setTimeout(() => {
+        if($('mm-found-name')) $('mm-found-name').textContent = `Matched with ${state.opponentName}`;
+      }, 900);
+      setTimeout(() => { closeModal('modal-matchmaking'); launchBattle(); }, 2000);
+    });
+  }
 
-  $('btn-join-lobby').addEventListener('click', () => {
-    state.isHost = false;
-    $('mm-choice').style.display = 'none';
-    $('mm-join').style.display = '';
-    buildCodeInputs();
-  });
-
-  $('btn-connect-code').addEventListener('click', () => {
-    $('mm-join').style.display = 'none';
-    $('mm-found').style.display = '';
-    $('mm-found-name').textContent = 'Connecting to host…';
-    state.opponentName = OPPONENT_NAMES[Math.floor(Math.random()*OPPONENT_NAMES.length)];
-    setTimeout(() => {
-      $('mm-found-name').textContent = `Matched with ${state.opponentName}`;
-    }, 900);
-    setTimeout(() => { closeModal('modal-matchmaking'); launchBattle(); }, 2000);
-  });
-
-  $('btn-cancel-create').addEventListener('click', () => { clearTimeout(state.mmTimeout); resetMatchmakingPanels(); });
-  $('btn-cancel-join').addEventListener('click', resetMatchmakingPanels);
+  if($('btn-cancel-create')) $('btn-cancel-create').addEventListener('click', () => { clearTimeout(state.mmTimeout); resetMatchmakingPanels(); });
+  if($('btn-cancel-join')) $('btn-cancel-join').addEventListener('click', resetMatchmakingPanels);
 }
 
 /* ---------------------------------------------------------------
@@ -253,18 +292,22 @@ const OVERFLOW_DURATION = 30;
 
 function randomTarget(){
   const sign = Math.random() < 0.5 ? -1 : 1;
-  const magnitude = Math.random() < 0.6
-    ? Math.floor(Math.random()*30)                 // small integer-ish
-    : Math.random()*80;                             // wider decimal range
+  let magnitude;
+  if (state.selectedMode === 'practice') {
+    if (state.practiceDifficulty === 'easy') magnitude = Math.floor(Math.random()*15) + 1;
+    else if (state.practiceDifficulty === 'hard') magnitude = Math.random()*120;
+    else magnitude = Math.floor(Math.random()*45) + 5;
+  } else {
+    magnitude = Math.random() < 0.6 ? Math.floor(Math.random()*30) : Math.random()*80;
+  }
   let val = sign * magnitude;
-  const decimals = Math.random() < 0.5 ? 0 : (Math.random() < 0.7 ? 1 : 2);
+  const decimals = (state.selectedMode === 'practice' && state.practiceDifficulty === 'easy') ? 0 : (Math.random() < 0.5 ? 0 : (Math.random() < 0.7 ? 1 : 2));
   val = Math.round(val * Math.pow(10,decimals)) / Math.pow(10,decimals);
-  if (val === 0) val = sign * 1; // avoid a plain 0 target
+  if (val === 0) val = sign * 1;
   return val;
 }
 
-/* ---- expression parser (no eval/Function — also lets us inspect the
-   equation's actual shape for anti-cheat, not just its result) ---- */
+/* ---- expression parser ---- */
 function parseCalcExpr(raw){
   const s = (raw || '').replace(/\s+/g, '');
   if (!s) return null;
@@ -325,8 +368,6 @@ function evalNode(node){
   if (node.op === '/') return l / r;
 }
 
-// True once there's at least one real (non-unary) operation in the tree —
-// stops someone from just entering the target number on its own.
 function hasRealOperation(node){
   if (node.type !== 'bin') return false;
   if (!node.unary) return true;
@@ -335,8 +376,6 @@ function hasRealOperation(node){
 const isZero = n => n.type === 'num' && Math.abs(n.value) < 1e-9;
 const isOne  = n => n.type === 'num' && Math.abs(n.value - 1) < 1e-9;
 
-// Walks the tree looking for a no-op step: +0, -0, *1, or /1 — anywhere,
-// including inside parentheses, so wrapping it doesn't get around it.
 function findFreebie(node){
   if (node.type !== 'bin') return false;
   if (!node.unary){
@@ -357,15 +396,15 @@ function evalExpr(expr){
 
 function launchBattle(){
   const u = state.user;
-  $('battle-my-avatar').textContent = u.avatar;
-  $('battle-my-name').textContent = u.name;
-  $('battle-opp-avatar').textContent = (state.opponentName||'O').charAt(0);
-  $('battle-opp-name').textContent = state.opponentName || 'Opponent';
-  $('battle-my-score').textContent = '0';
-  $('battle-opp-score').textContent = '0';
-  $('clash-bar-fill').style.width = '50%';
-  $('overflow-banner').classList.remove('active');
-  $('battle-feed').innerHTML = '';
+  if($('battle-my-avatar')) $('battle-my-avatar').textContent = u.avatar;
+  if($('battle-my-name')) $('battle-my-name').textContent = u.name;
+  if($('battle-opp-avatar')) $('battle-opp-avatar').textContent = (state.opponentName||'O').charAt(0);
+  if($('battle-opp-name')) $('battle-opp-name').textContent = state.opponentName || 'Opponent';
+  if($('battle-my-score')) $('battle-my-score').textContent = '0';
+  if($('battle-opp-score')) $('battle-opp-score').textContent = '0';
+  if($('clash-bar-fill')) $('clash-bar-fill').style.width = '50%';
+  if($('overflow-banner')) $('overflow-banner').classList.remove('active');
+  if($('battle-feed')) $('battle-feed').innerHTML = '';
 
   state.match = {
     myScore: 0,
@@ -388,6 +427,11 @@ function launchBattle(){
   updateTimerDisplay();
 }
 
+function launchPracticeBattle(){
+  state.opponentName = 'Training Bot';
+  launchBattle();
+}
+
 function nextRound(){
   const m = state.match;
   if (!m) return;
@@ -395,6 +439,7 @@ function nextRound(){
   m.target = randomTarget();
   resetCalc();
   const el = $('target-number');
+  if(!el) return;
   el.textContent = fmtNum(m.target);
   el.classList.remove('swap');
   void el.offsetWidth;
@@ -404,28 +449,34 @@ function nextRound(){
 
 function scheduleOpponent(){
   const m = state.match;
+  if(!m) return;
   clearTimeout(m.oppTimeoutId);
   const attempt = () => {
     if (!m || m.roundSolved || m.timeLeft <= 0) return;
-    const succeeds = Math.random() < 0.82;
+    const botChance = state.selectedMode === 'practice' 
+      ? (state.practiceDifficulty === 'easy' ? 0.55 : state.practiceDifficulty === 'hard' ? 0.90 : 0.75) 
+      : 0.82;
+    const succeeds = Math.random() < botChance;
     if (succeeds){
       opponentScores();
     } else {
       pushFeed(`${state.opponentName} misfired`, 'wrong');
-      m.oppTimeoutId = setTimeout(attempt, 1400 + Math.random()*2200);
+      const delay = state.selectedMode === 'practice' && state.practiceDifficulty === 'easy' ? 2500 : 1400;
+      m.oppTimeoutId = setTimeout(attempt, delay + Math.random()*2200);
     }
   };
-  m.oppTimeoutId = setTimeout(attempt, 2200 + Math.random()*4200);
+  const baseDelay = state.selectedMode === 'practice' && state.practiceDifficulty === 'easy' ? 3500 : 2200;
+  m.oppTimeoutId = setTimeout(attempt, baseDelay + Math.random()*4200);
 }
 
 function opponentScores(){
   const m = state.match;
-  if (m.roundSolved) return;
+  if (!m || m.roundSolved) return;
   m.roundSolved = true;
   const mult = m.overflowActive ? 2 : 1;
-  const points = (100 + 50) * mult; // base + first-solve bonus
+  const points = (100 + 50) * mult;
   m.oppScore += points;
-  $('battle-opp-score').textContent = m.oppScore;
+  if($('battle-opp-score')) $('battle-opp-score').textContent = m.oppScore;
   bump('battle-opp-score');
   pushFeed(`${state.opponentName} +${points}`, 'theirs');
   updateClashBar();
@@ -434,23 +485,28 @@ function opponentScores(){
 
 function playerScores(){
   const m = state.match;
+  if(!m) return;
   m.roundSolved = true;
   clearTimeout(m.oppTimeoutId);
   const mult = m.overflowActive ? 2 : 1;
   const points = (100 + 50) * mult;
   m.myScore += points;
-  $('battle-my-score').textContent = m.myScore;
+  if($('battle-my-score')) $('battle-my-score').textContent = m.myScore;
   bump('battle-my-score');
   pushFeed(`You +${points}`, 'mine');
   updateClashBar();
-  $('btn-submit').classList.remove('correct-flash');
-  void $('btn-submit').offsetWidth;
-  $('btn-submit').classList.add('correct-flash');
+  const subBtn = $('btn-submit');
+  if(subBtn){
+    subBtn.classList.remove('correct-flash');
+    void subBtn.offsetWidth;
+    subBtn.classList.add('correct-flash');
+  }
   setTimeout(nextRound, 900);
 }
 
 function bump(id){
   const el = $(id);
+  if (!el) return;
   el.classList.remove('bump');
   void el.offsetWidth;
   el.classList.add('bump');
@@ -458,13 +514,15 @@ function bump(id){
 
 function updateClashBar(){
   const m = state.match;
+  if(!m) return;
   const total = m.myScore + m.oppScore;
   const pct = total === 0 ? 50 : (m.myScore/total)*100;
-  $('clash-bar-fill').style.width = pct + '%';
+  if($('clash-bar-fill')) $('clash-bar-fill').style.width = pct + '%';
 }
 
 function pushFeed(text, cls){
   const feed = $('battle-feed');
+  if(!feed) return;
   const item = document.createElement('div');
   item.className = 'feed-item ' + cls;
   item.textContent = text;
@@ -482,10 +540,10 @@ function tick(){
   }
   if (m.overflowActive){
     m.overflowSecondsLeft--;
-    $('overflow-time').textContent = m.overflowSecondsLeft;
+    if($('overflow-time')) $('overflow-time').textContent = m.overflowSecondsLeft;
     if (m.overflowSecondsLeft <= 0){
       m.overflowActive = false;
-      $('overflow-banner').classList.remove('active');
+      if($('overflow-banner')) $('overflow-banner').classList.remove('active');
     }
   }
 
@@ -497,45 +555,52 @@ function tick(){
 
 function triggerOverflow(){
   const m = state.match;
+  if(!m) return;
   m.overflowUsed = true;
   m.overflowActive = true;
   m.overflowSecondsLeft = OVERFLOW_DURATION;
-  $('overflow-time').textContent = m.overflowSecondsLeft;
-  $('overflow-banner').classList.add('active');
+  if($('overflow-time')) $('overflow-time').textContent = m.overflowSecondsLeft;
+  if($('overflow-banner')) $('overflow-banner').classList.add('active');
   const flash = $('overflow-flash');
-  flash.classList.remove('active');
-  void flash.offsetWidth;
-  flash.classList.add('active');
+  if(flash){
+    flash.classList.remove('active');
+    void flash.offsetWidth;
+    flash.classList.add('active');
+  }
 }
 
 function updateTimerDisplay(){
   const m = state.match;
+  if(!m) return;
   const t = Math.max(0, m.timeLeft);
   const mm = Math.floor(t/60);
   const ss = (t%60).toString().padStart(2,'0');
-  $('match-timer').textContent = `${mm}:${ss}`;
+  if($('match-timer')) $('match-timer').textContent = `${mm}:${ss}`;
 }
 
 function endMatch(){
   const m = state.match;
+  if(!m) return;
   clearInterval(m.tickId);
   clearTimeout(m.oppTimeoutId);
-  $('overflow-banner').classList.remove('active');
+  if($('overflow-banner')) $('overflow-banner').classList.remove('active');
 
   const won = m.myScore > m.oppScore;
   const tied = m.myScore === m.oppScore;
-  if (!tied){
+  if (!tied && state.selectedMode !== 'practice'){
     if (won) state.user.wins++; else state.user.losses++;
   }
   renderUserChrome();
 
-  $('results-eyebrow').textContent = 'MATCH COMPLETE';
+  if($('results-eyebrow')) $('results-eyebrow').textContent = 'MATCH COMPLETE';
   const headline = $('results-headline');
-  headline.textContent = tied ? 'Draw' : (won ? 'Victory' : 'Defeat');
-  headline.className = 'results-headline ' + (tied ? '' : (won ? 'win' : 'lose'));
-  $('results-my-score').textContent = m.myScore;
-  $('results-opp-score').textContent = m.oppScore;
-  $('results-opp-name-label').textContent = state.opponentName || 'Opponent';
+  if(headline){
+    headline.textContent = tied ? 'Draw' : (won ? 'Victory' : 'Defeat');
+    headline.className = 'results-headline ' + (tied ? '' : (won ? 'win' : 'lose'));
+  }
+  if($('results-my-score')) $('results-my-score').textContent = m.myScore;
+  if($('results-opp-score')) $('results-opp-score').textContent = m.oppScore;
+  if($('results-opp-name-label')) $('results-opp-name-label').textContent = state.opponentName || 'Opponent';
 
   showScreen('screen-results');
 }
@@ -545,15 +610,16 @@ function endMatch(){
 --------------------------------------------------------------- */
 function resetCalc(){
   if (state.match) state.match.expr = '';
-  $('calc-expr').innerHTML = '&nbsp;';
-  $('calc-preview').textContent = '= 0';
+  if($('calc-expr')) $('calc-expr').innerHTML = '&nbsp;';
+  if($('calc-preview')) $('calc-preview').textContent = '= 0';
 }
 
 function renderCalc(){
   const m = state.match;
-  $('calc-expr').textContent = m.expr || '\u00A0';
+  if(!m) return;
+  if($('calc-expr')) $('calc-expr').textContent = m.expr || '\u00A0';
   const val = evalExpr(m.expr);
-  $('calc-preview').textContent = val === null ? '= —' : '= ' + fmtNum(val);
+  if($('calc-preview')) $('calc-preview').textContent = val === null ? '= —' : '= ' + fmtNum(val);
 }
 
 function calcPress(key){
@@ -562,7 +628,6 @@ function calcPress(key){
   if (key === 'clear'){ m.expr = ''; }
   else if (key === 'back'){ m.expr = m.expr.slice(0,-1); }
   else if (key === 'neg'){
-    // toggle sign of the trailing number token
     const match = m.expr.match(/(-?\d*\.?\d+)$/);
     if (match){
       const token = match[1];
@@ -581,7 +646,7 @@ function initCalc(){
   qsa('.calc-btn').forEach(btn => {
     btn.addEventListener('click', () => calcPress(btn.dataset.key));
   });
-  $('btn-submit').addEventListener('click', submitAnswer);
+  if($('btn-submit')) $('btn-submit').addEventListener('click', submitAnswer);
 }
 
 function submitAnswer(){
@@ -614,6 +679,7 @@ function submitAnswer(){
 }
 function shakeExpr(){
   const el = $('calc-expr');
+  if (!el) return;
   el.classList.remove('shake');
   void el.offsetWidth;
   el.classList.add('shake');
@@ -625,22 +691,27 @@ function shakeExpr(){
 function init(){
   initBackground();
 
-  $('btn-google').addEventListener('click', () => beginAuth('google'));
-  $('btn-discord-login').addEventListener('click', () => beginAuth('discord'));
-  $('btn-confirm-name').addEventListener('click', completeAuth);
-  $('input-username').addEventListener('keydown', e => { if (e.key === 'Enter') completeAuth(); });
+  if($('btn-google')) $('btn-google').addEventListener('click', () => handleLockedAuth('google'));
+  if($('btn-discord-login')) $('btn-discord-login').addEventListener('click', () => handleLockedAuth('discord'));
+  if($('btn-confirm-guest')) $('btn-confirm-guest').addEventListener('click', completeGuestAuth);
+  const guestInput = $('input-guest-name');
+  if(guestInput) {
+    guestInput.addEventListener('keydown', e => { if (e.key === 'Enter') completeGuestAuth(); });
+  }
 
-  $('btn-play').addEventListener('click', () => showScreen('screen-lobby'));
-  $('btn-back-menu').addEventListener('click', () => showScreen('screen-menu'));
-  $('btn-updates').addEventListener('click', () => openModal('modal-updates'));
-  $('btn-discord-menu').addEventListener('click', () => window.open('https://discord.gg/', '_blank'));
+  if($('btn-play')) $('btn-play').addEventListener('click', () => showScreen('screen-lobby'));
+  if($('btn-back-menu')) $('btn-back-menu').addEventListener('click', () => showScreen('screen-menu'));
+  if($('btn-updates')) $('btn-updates').addEventListener('click', () => openModal('modal-updates'));
+  if($('btn-discord-menu')) $('btn-discord-menu').addEventListener('click', () => window.open('https://discord.gg/', '_blank'));
 
-  $('btn-profile').addEventListener('click', () => openModal('modal-profile'));
-  $('btn-copy-fc').addEventListener('click', () => {
-    navigator.clipboard?.writeText(state.user.friendCode).catch(()=>{});
-    flashCopy('btn-copy-fc');
+  if($('btn-profile')) $('btn-profile').addEventListener('click', () => openModal('modal-profile'));
+  if($('btn-copy-fc')) $('btn-copy-fc').addEventListener('click', () => {
+    if(state.user) {
+      navigator.clipboard?.writeText(state.user.friendCode).catch(()=>{});
+      flashCopy('btn-copy-fc');
+    }
   });
-  $('btn-copy-code').addEventListener('click', () => {
+  if($('btn-copy-code')) $('btn-copy-code').addEventListener('click', () => {
     navigator.clipboard?.writeText(state.lobbyCode).catch(()=>{});
     flashCopy('btn-copy-code');
   });
@@ -652,16 +723,27 @@ function init(){
     overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.classList.remove('active'); });
   });
 
-  $('btn-play-again').addEventListener('click', () => { openMatchmaking(); showScreen('screen-lobby'); });
-  $('btn-to-lobby').addEventListener('click', () => showScreen('screen-lobby'));
+  if($('btn-play-again')) $('btn-play-again').addEventListener('click', () => { openMatchmaking(); showScreen('screen-lobby'); });
+  if($('btn-to-lobby')) $('btn-to-lobby').addEventListener('click', () => showScreen('screen-lobby'));
 
   initLobby();
   initMatchmakingUI();
   initCalc();
+
+  // Initialize with a default guest user so the game is immediately testable upon load
+  state.user = {
+    name: 'Player',
+    avatar: 'P',
+    wins: 2,
+    losses: 1,
+    friendCode: randomFriendCode()
+  };
+  renderUserChrome();
 }
 
 function flashCopy(id){
   const btn = $(id);
+  if(!btn) return;
   const original = btn.textContent;
   btn.textContent = 'Copied!';
   setTimeout(() => btn.textContent = original, 1200);
