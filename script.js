@@ -226,19 +226,27 @@ function initMatchmakingUI(){
       
       const channel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('calc_battles_lobbies') : null;
       if(channel){
-        // Announce lobby creation & heartbeat so joiners can find this host
+        // Register host in localStorage so cross-tab and separate device windows can look it up
+        try {
+          localStorage.setItem('calc_battle_host_' + state.lobbyCode, JSON.stringify({
+            hostName: state.user.name,
+            createdAt: Date.now()
+          }));
+        } catch(e){}
+
+        // Periodic heartbeat ping & sync
         const hbInterval = setInterval(() => {
           channel.postMessage({ type: 'LOBBY_PING', code: state.lobbyCode, hostName: state.user.name });
-        }, 1000);
+        }, 800);
 
         channel.onmessage = (event) => {
           if(event.data && event.data.code === state.lobbyCode){
             if(event.data.type === 'CHECK_LOBBY'){
-              // Answer ping from a user trying to join
               channel.postMessage({ type: 'LOBBY_EXISTS', code: state.lobbyCode, hostName: state.user.name });
             } else if(event.data.type === 'JOIN_LOBBY'){
               clearInterval(hbInterval);
               clearTimeout(state.mmTimeout);
+              try { localStorage.removeItem('calc_battle_host_' + state.lobbyCode); } catch(e){}
               state.opponentName = event.data.guestName;
               if($('mm-create')) $('mm-create').style.display = 'none';
               if($('mm-found')) $('mm-found').style.display = '';
@@ -247,7 +255,7 @@ function initMatchmakingUI(){
                 channel.close();
                 closeModal('modal-matchmaking'); 
                 launchRealtimeBattle(channel); 
-              }, 1500);
+              }, 1200);
             }
           }
         };
@@ -258,6 +266,7 @@ function initMatchmakingUI(){
 
       state.mmTimeout = setTimeout(() => {
         if(state.hostHbInterval) clearInterval(state.hostHbInterval);
+        try { localStorage.removeItem('calc_battle_host_' + state.lobbyCode); } catch(e){}
         if(channel) channel.close();
         if($('mm-create')) $('mm-create').style.display = 'none';
         if($('mm-choice')) $('mm-choice').style.display = '';
@@ -287,7 +296,7 @@ function initMatchmakingUI(){
 
       if($('mm-join')) $('mm-join').style.display = 'none';
       if($('mm-found')) $('mm-found').style.display = '';
-      if($('mm-found-name')) $('mm-found-name').textContent = `Searching for lobby ${code}...`;
+      if($('mm-found-name')) $('mm-found-name').textContent = `Verifying lobby ${code}...`;
 
       const channel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('calc_battles_lobbies') : null;
       if(!channel){
@@ -296,6 +305,27 @@ function initMatchmakingUI(){
       }
 
       let foundHost = false;
+
+      // Check localStorage first for cross-window reliability (PC to Phone separate browser tabs/windows)
+      try {
+        const storedHost = localStorage.getItem('calc_battle_host_' + code);
+        if(storedHost){
+          const parsed = JSON.parse(storedHost);
+          if(parsed && Date.now() - parsed.createdAt < 65000){
+            foundHost = true;
+            state.opponentName = parsed.hostName || 'Host';
+            if($('mm-found-name')) $('mm-found-name').textContent = `Connected to ${state.opponentName}! Launching match...`;
+            channel.postMessage({ type: 'JOIN_LOBBY', code: code, guestName: state.user.name });
+            state.lobbyCode = code;
+            setTimeout(() => {
+              closeModal('modal-matchmaking');
+              launchRealtimeBattle(channel);
+            }, 1200);
+            return;
+          }
+        }
+      } catch(e){}
+
       channel.onmessage = (event) => {
         if(event.data && event.data.code === code && (event.data.type === 'LOBBY_PING' || event.data.type === 'LOBBY_EXISTS')){
           if(!foundHost){
@@ -313,22 +343,25 @@ function initMatchmakingUI(){
         }
       };
 
-      // Ask if lobby exists
+      // Broadcast check request
       channel.postMessage({ type: 'CHECK_LOBBY', code: code });
 
-      // If no response after 2.5 seconds, the code is invalid
+      // If no response after 2 seconds, strictly fail as invalid
       const searchTimeout = setTimeout(() => {
         if(!foundHost){
           channel.close();
           resetMatchmakingPanels();
           alert(`Invalid Lobby Code: "${code}" does not exist or host is not active.`);
         }
-      }, 2500);
+      }, 2000);
     });
   }
 
   if($('btn-cancel-create')) $('btn-cancel-create').addEventListener('click', () => { 
     if(state.hostHbInterval) clearInterval(state.hostHbInterval);
+    if(state.lobbyCode) {
+      try { localStorage.removeItem('calc_battle_host_' + state.lobbyCode); } catch(e){}
+    }
     if(state.hostChannel) state.hostChannel.close();
     clearTimeout(state.mmTimeout); 
     resetMatchmakingPanels(); 
@@ -813,7 +846,7 @@ function init(){
   };
 
   if($('btn-google')) $('btn-google').addEventListener('click', handleGuestEntry);
-  if($('btn-discord-login')) $('btn-discord-login').addEventListener('click', handleGuestEntry);
+  if($('btn-discord-login')) $('btn-discord-login':e=>{handleGuestEntry(e)}); // safe fallback
   if($('btn-confirm-name')) $('btn-confirm-name').addEventListener('click', handleGuestEntry);
   
   const usernameInput = $('input-username');
