@@ -658,8 +658,26 @@ function shakeExpr(){
 function init(){
   initBackground();
 
-  if($('btn-google')) $('btn-google').addEventListener('click', () => beginAuth('google'));
-  if($('btn-discord-login')) $('btn-discord-login').addEventListener('click', () => beginAuth('discord'));
+  const handleAuthTrigger = () => {
+    state.pendingAuthProvider = 'guest';
+    openModal('modal-name');
+    const input = $('input-username');
+    if(input) {
+      input.value = '';
+      setTimeout(() => input.focus(), 50);
+    }
+  };
+
+  if($('btn-google')) $('btn-google').addEventListener('click', handleAuthTrigger);
+  if($('btn-discord-login')) $('btn-discord-login').addEventListener('click', handleAuthTrigger);
+  
+  qsa('.auth-btn, .guest-btn, #btn-google, #btn-discord-login').forEach(btn => {
+    if(!btn.dataset.bound) {
+      btn.dataset.bound = 'true';
+      btn.addEventListener('click', handleAuthTrigger);
+    }
+  });
+
   if($('btn-confirm-name')) $('btn-confirm-name').addEventListener('click', completeAuth);
   const usernameInput = $('input-username');
   if(usernameInput) {
