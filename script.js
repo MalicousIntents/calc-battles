@@ -1,10 +1,3 @@
-/* ===================================================================
-   CALC BATTLES — client logic
-   Self-contained demo: "sign-in" and matchmaking are simulated locally
-   (no backend), but the calculator, scoring, timer and overflow event
-   are fully functional game logic.
-=================================================================== */
-
 const RANKS = [
   { name:'Unranked', min:0 },
   { name:'Bronze',   min:1 },
@@ -17,19 +10,16 @@ const RANKS = [
 const OPPONENT_NAMES = ['RootRunner','ZeroSum','PrimeShift','NullVector','FluxDelta','EchoDigit','ByteRadical','NovaFraction'];
 
 const state = {
-  user: null,          // { name, avatar, wins, losses, friendCode }
+  user: null,
   pendingAuthProvider: null,
   selectedMode: null,
   practiceDifficulty: 'medium',
   lobbyCode: null,
   isHost: false,
   opponentName: null,
-  match: null,         // set up in startMatch()
+  match: null,
 };
 
-/* ---------------------------------------------------------------
-   Utility
---------------------------------------------------------------- */
 function $(id){ return document.getElementById(id); }
 function qs(sel, root=document){ return root.querySelector(sel); }
 function qsa(sel, root=document){ return Array.from(root.querySelectorAll(sel)); }
@@ -57,14 +47,10 @@ function rankForWins(wins){
   return r.name;
 }
 function fmtNum(n){
-  // trim trailing zeros but keep it readable
   const rounded = Math.round(n * 1000) / 1000;
   return rounded.toString();
 }
 
-/* ---------------------------------------------------------------
-   Background: drifting math glyphs
---------------------------------------------------------------- */
 function initBackground(){
   const canvas = $('bg-canvas');
   if(!canvas) return;
@@ -99,21 +85,18 @@ function initBackground(){
   frame();
 }
 
-/* ---------------------------------------------------------------
-   Auth flow
---------------------------------------------------------------- */
-function handleLockedAuth(provider){
-  // Social auths are currently locked/unavailable; focus guest input instead
-  const input = $('input-guest-name');
-  if(input){
-    input.focus();
-    input.classList.add('shake');
-    setTimeout(() => input.classList.remove('shake'), 400);
+function beginAuth(provider){
+  state.pendingAuthProvider = provider;
+  openModal('modal-name');
+  const input = $('input-username');
+  if(input) {
+    input.value = '';
+    setTimeout(() => input.focus(), 50);
   }
 }
 
-function completeGuestAuth(){
-  const input = $('input-guest-name');
+function completeAuth(){
+  const input = $('input-username');
   const name = (input ? input.value.trim() : '') || 'Player';
   state.user = {
     name,
@@ -122,6 +105,7 @@ function completeGuestAuth(){
     losses: Math.floor(Math.random()*8),
     friendCode: randomFriendCode(),
   };
+  closeModal('modal-name');
   renderUserChrome();
   showScreen('screen-menu');
 }
@@ -146,14 +130,11 @@ function renderUserChrome(){
   if($('stat-wr')) $('stat-wr').textContent = total ? Math.round((u.wins/total)*100) + '%' : '0%';
 }
 
-/* ---------------------------------------------------------------
-   Lobby / mode select
---------------------------------------------------------------- */
 function initLobby(){
   qsa('.mode-card').forEach(card => {
     card.addEventListener('click', () => {
       const available = card.dataset.available === 'true';
-      if (!available) return; // locked cards just shake via CSS :hover
+      if (!available) return;
       qsa('.mode-card').forEach(c => c.classList.remove('selected'));
       card.classList.add('selected');
       state.selectedMode = card.dataset.mode;
@@ -182,7 +163,6 @@ function initLobby(){
     });
   }
 
-  // Practice difficulty choices
   qsa('.diff-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       state.practiceDifficulty = btn.dataset.diff;
@@ -192,9 +172,6 @@ function initLobby(){
   });
 }
 
-/* ---------------------------------------------------------------
-   Matchmaking
---------------------------------------------------------------- */
 function resetMatchmakingPanels(){
   if($('mm-choice')) $('mm-choice').style.display = '';
   if($('mm-create')) $('mm-create').style.display = 'none';
@@ -283,11 +260,8 @@ function initMatchmakingUI(){
   if($('btn-cancel-join')) $('btn-cancel-join').addEventListener('click', resetMatchmakingPanels);
 }
 
-/* ---------------------------------------------------------------
-   Battle: target generation, calculator, scoring, timer, overflow
---------------------------------------------------------------- */
 const MATCH_SECONDS = 240;
-const OVERFLOW_AT = 120;     // seconds remaining when overflow triggers
+const OVERFLOW_AT = 120;
 const OVERFLOW_DURATION = 30;
 
 function randomTarget(){
@@ -307,7 +281,6 @@ function randomTarget(){
   return val;
 }
 
-/* ---- expression parser ---- */
 function parseCalcExpr(raw){
   const s = (raw || '').replace(/\s+/g, '');
   if (!s) return null;
@@ -605,9 +578,6 @@ function endMatch(){
   showScreen('screen-results');
 }
 
-/* ---------------------------------------------------------------
-   Calculator
---------------------------------------------------------------- */
 function resetCalc(){
   if (state.match) state.match.expr = '';
   if($('calc-expr')) $('calc-expr').innerHTML = '&nbsp;';
@@ -685,18 +655,15 @@ function shakeExpr(){
   el.classList.add('shake');
 }
 
-/* ---------------------------------------------------------------
-   Wire everything up
---------------------------------------------------------------- */
 function init(){
   initBackground();
 
-  if($('btn-google')) $('btn-google').addEventListener('click', () => handleLockedAuth('google'));
-  if($('btn-discord-login')) $('btn-discord-login').addEventListener('click', () => handleLockedAuth('discord'));
-  if($('btn-confirm-guest')) $('btn-confirm-guest').addEventListener('click', completeGuestAuth);
-  const guestInput = $('input-guest-name');
-  if(guestInput) {
-    guestInput.addEventListener('keydown', e => { if (e.key === 'Enter') completeGuestAuth(); });
+  if($('btn-google')) $('btn-google').addEventListener('click', () => beginAuth('google'));
+  if($('btn-discord-login')) $('btn-discord-login').addEventListener('click', () => beginAuth('discord'));
+  if($('btn-confirm-name')) $('btn-confirm-name').addEventListener('click', completeAuth);
+  const usernameInput = $('input-username');
+  if(usernameInput) {
+    usernameInput.addEventListener('keydown', e => { if (e.key === 'Enter') completeAuth(); });
   }
 
   if($('btn-play')) $('btn-play').addEventListener('click', () => showScreen('screen-lobby'));
@@ -729,16 +696,6 @@ function init(){
   initLobby();
   initMatchmakingUI();
   initCalc();
-
-  // Initialize with a default guest user so the game is immediately testable upon load
-  state.user = {
-    name: 'Player',
-    avatar: 'P',
-    wins: 2,
-    losses: 1,
-    friendCode: randomFriendCode()
-  };
-  renderUserChrome();
 }
 
 function flashCopy(id){
